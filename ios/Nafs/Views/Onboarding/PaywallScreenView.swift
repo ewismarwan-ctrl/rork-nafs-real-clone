@@ -2,8 +2,8 @@ import SwiftUI
 import RevenueCat
 
 enum PaywallConstants {
-    static let privacyPolicyURL = "https://docs.google.com/document/d/1SATcvvN_-1Qffx45NTkrZ4BXLxhdroMfMjHsSQSNF1E/edit?usp=sharing"
-    static let termsOfUseURL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+    static let privacyPolicyURL = NafsConstants.privacyPolicyURL
+    static let termsOfUseURL = NafsConstants.termsOfUseURL
 }
 
 struct PaywallScreenView: View {

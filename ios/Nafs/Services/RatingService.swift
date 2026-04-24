@@ -18,20 +18,20 @@ final class RatingService {
     private(set) var isPromptInProgress: Bool = false
     private var promptStartedAt: Date?
 
-    /// Opens the real App Store review page. Reliable on physical devices.
-    /// StoreKit in-app prompt is rate-limited by Apple, so the URL fallback is
-    /// the canonical "always works" path.
+    /// Opens the App Store review page. Uses itms-apps first (opens App Store
+    /// app directly on device), falls back to https (which iOS auto-redirects
+    /// to App Store), and finally the in-app StoreKit prompt.
     func requestReview() {
         isPromptInProgress = true
         promptStartedAt = Date()
         UserDefaults.standard.set(Date(), forKey: lastPromptKey)
 
-        let candidates: [String] = [
-            "itms-apps://apps.apple.com/app/id\(NafsConstants.appStoreID)?action=write-review",
-            NafsConstants.rateAppURL
-        ]
-        let urls = candidates.compactMap(URL.init(string:))
-        openFirstAvailable(urls: urls, index: 0)
+        let candidates: [URL] = [
+            URL(string: NafsConstants.rateAppURLItmsApps),
+            URL(string: NafsConstants.rateAppURL)
+        ].compactMap { $0 }
+
+        openFirstAvailable(urls: candidates, index: 0)
     }
 
     private func openFirstAvailable(urls: [URL], index: Int) {
