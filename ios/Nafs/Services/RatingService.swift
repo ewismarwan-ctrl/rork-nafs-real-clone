@@ -9,7 +9,6 @@ final class RatingService {
 
     private let hasRatedKey = "nafs.hasRatedApp"
     private let lastPromptKey = "nafs.lastRatePromptDate"
-    private let attemptInProgressKey = "nafs.ratePromptInProgress"
 
     var hasRated: Bool {
         get { UserDefaults.standard.bool(forKey: hasRatedKey) }
@@ -19,20 +18,32 @@ final class RatingService {
     private(set) var isPromptInProgress: Bool = false
     private var promptStartedAt: Date?
 
+    /// Opens the real App Store review page. Reliable on physical devices.
+    /// StoreKit in-app prompt is rate-limited by Apple, so the URL fallback is
+    /// the canonical "always works" path.
     func requestReview() {
         isPromptInProgress = true
         promptStartedAt = Date()
         UserDefaults.standard.set(Date(), forKey: lastPromptKey)
 
-        guard let url = URL(string: NafsConstants.rateAppURL) else {
-            isPromptInProgress = false
+        let candidates: [String] = [
+            "itms-apps://apps.apple.com/app/id\(NafsConstants.appStoreID)?action=write-review",
+            NafsConstants.rateAppURL
+        ]
+        let urls = candidates.compactMap(URL.init(string:))
+        openFirstAvailable(urls: urls, index: 0)
+    }
+
+    private func openFirstAvailable(urls: [URL], index: Int) {
+        guard index < urls.count else {
+            tryStoreKitFallback()
             return
         }
-
+        let url = urls[index]
         UIApplication.shared.open(url, options: [:]) { [weak self] success in
             guard let self else { return }
             if !success {
-                self.tryStoreKitFallback()
+                self.openFirstAvailable(urls: urls, index: index + 1)
             }
         }
     }

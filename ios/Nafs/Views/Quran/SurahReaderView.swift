@@ -86,19 +86,22 @@ struct SurahReaderView: View {
                 .foregroundStyle(NafsTheme.subtleText)
 
             if showBismillah {
-                VStack(spacing: 4) {
+                VStack(spacing: 8) {
                     Rectangle()
                         .fill(NafsTheme.gold.opacity(0.3))
-                        .frame(width: 40, height: 1)
+                        .frame(width: 60, height: 1)
                     Text("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ")
-                        .font(.system(size: 26, weight: .medium))
+                        .font(.custom("Geeza Pro", size: 30).weight(.semibold))
                         .foregroundStyle(NafsTheme.gold)
-                        .lineSpacing(14)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(18)
+                        .environment(\.layoutDirection, .rightToLeft)
                     Rectangle()
                         .fill(NafsTheme.gold.opacity(0.3))
-                        .frame(width: 40, height: 1)
+                        .frame(width: 60, height: 1)
                 }
-                .padding(.top, 12)
+                .padding(.top, 16)
+                .padding(.horizontal, 20)
             }
         }
         .frame(maxWidth: .infinity)
@@ -273,18 +276,16 @@ private struct AyahRowView: View {
     let onAskAI: () -> Void
     let onPlayFromHere: () -> Void
 
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 12) {
-            HStack {
-                ZStack {
-                    Circle()
-                        .fill(isCurrentlyPlaying ? NafsTheme.gold.opacity(0.2) : NafsTheme.card)
-                        .frame(width: 32, height: 32)
-                    Text("\(ayah.numberInSurah)")
-                        .font(.system(.caption2, weight: .bold))
-                        .foregroundStyle(isCurrentlyPlaying ? NafsTheme.gold : NafsTheme.subtleText)
-                }
+    private var ayahNumberArabic: String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "ar")
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: ayah.numberInSurah)) ?? "\(ayah.numberInSurah)"
+    }
 
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 14) {
+            HStack {
                 if isCurrentlyPlaying {
                     Image(systemName: "speaker.wave.2.fill")
                         .font(.system(.caption2))
@@ -302,20 +303,28 @@ private struct AyahRowView: View {
             }
 
             Button(action: onTap) {
-                VStack(alignment: .trailing, spacing: 16) {
-                    Text(ayah.arabicText)
-                        .font(.system(size: 28, weight: .regular))
+                VStack(spacing: 18) {
+                    Text(ayahText)
+                        .font(.custom("Geeza Pro", size: 32).weight(.regular))
                         .foregroundStyle(NafsTheme.text)
-                        .multilineTextAlignment(.trailing)
-                        .lineSpacing(20)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.vertical, 4)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(24)
+                        .tracking(0.5)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .environment(\.layoutDirection, .rightToLeft)
+
+                    Rectangle()
+                        .fill(NafsTheme.gold.opacity(0.15))
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 60)
 
                     Text(ayah.translation)
                         .font(.system(.subheadline))
                         .foregroundStyle(NafsTheme.subtleText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineSpacing(5)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .lineSpacing(6)
                 }
             }
 
@@ -368,7 +377,15 @@ private struct AyahRowView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
         .background(isCurrentlyPlaying ? NafsTheme.gold.opacity(0.04) : .clear)
+    }
+
+    private var ayahText: String {
+        // Embed a Quran.com-style ornament + Arabic-Indic number at end of ayah
+        let ornamentOpen = "\u{FD3F}"   // ornate right parenthesis
+        let ornamentClose = "\u{FD3E}"  // ornate left parenthesis
+        return "\(ayah.arabicText) \(ornamentClose)\(ayahNumberArabic)\(ornamentOpen)"
     }
 }

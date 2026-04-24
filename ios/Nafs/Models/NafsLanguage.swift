@@ -308,4 +308,11 @@ enum NafsStrings {
     static let subscription = LocalizedText(en: "Subscription", ar: "الاشتراك")
     static let replayOnboarding = LocalizedText(en: "Replay Onboarding", ar: "إعادة التعريف")
     static let languageChanged = LocalizedText(en: "Language changed. Please restart the app for full effect.", ar: "تم تغيير اللغة. يرجى إعادة تشغيل التطبيق.")
+
+    static let focusMode = LocalizedText(en: "Focus Mode", ar: "وضع التركيز")
+    static let prayerLock = LocalizedText(en: "Prayer auto-lock", ar: "قفل الصلاة")
+    static let disciplineMode = LocalizedText(en: "Discipline Mode", ar: "وضع الانضباط")
+    static let quranAudioFull = LocalizedText(en: "Quran audio & reciters", ar: "صوت القرآن والقراء")
+    static let panicMode = LocalizedText(en: "Panic Mode", ar: "وضع الطوارئ")
+    static let widgetsFeature = LocalizedText(en: "Home screen widgets", ar: "ودجت الشاشة الرئيسية")
 }

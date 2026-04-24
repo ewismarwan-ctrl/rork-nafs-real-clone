@@ -75,6 +75,8 @@ struct CirclesView: View {
     @State private var showJoinSheet: Bool = false
     @State private var newCircleName: String = ""
     @State private var joinCode: String = ""
+    @State private var showCopiedToast: Bool = false
+    @State private var joinErrorMessage: String?
 
     private var activeCircle: UserCircle? {
         circles.first(where: { $0.id == activeCircleID }) ?? circles.first
@@ -122,6 +124,19 @@ struct CirclesView: View {
         .sheet(isPresented: $showJoinSheet) {
             joinCircleSheet
                 .presentationDetents([.medium])
+        }
+        .overlay(alignment: .top) {
+            if showCopiedToast {
+                Text(L10n.text("Code copied", "تم نسخ الرمز"))
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.black.opacity(0.85))
+                    .clipShape(.capsule)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .onAppear {
             loadCircleData()
@@ -259,20 +274,37 @@ struct CirclesView: View {
                     .foregroundStyle(NafsTheme.text)
 
                 TextField(L10n.text("Enter invite code", "أدخل رمز الدعوة"), text: $joinCode)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.system(size: 22, weight: .bold, design: .monospaced))
+                    .tracking(2)
+                    .multilineTextAlignment(.center)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled(true)
-                    .padding(14)
+                    .padding(16)
                     .background(NafsTheme.card)
                     .clipShape(.rect(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(NafsTheme.gold.opacity(0.3), lineWidth: 1)
+                    )
+                    .onChange(of: joinCode) { _, _ in
+                        if joinErrorMessage != nil { joinErrorMessage = nil }
+                    }
 
-                Text(L10n.text("Paste the code from your invite link", "الصق الرمز من رابط الدعوة"))
-                    .font(.system(.caption))
-                    .foregroundStyle(NafsTheme.subtleText)
+                if let err = joinErrorMessage {
+                    Text(err)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text(L10n.text("Enter the 8-character code from your friend's invite", "أدخل الرمز المكوّن من ٨ أحرف من دعوة صديقك"))
+                        .font(.system(.caption))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .multilineTextAlignment(.center)
+                }
 
                 NafsButton(
                     title: L10n.text("Join Circle", "انضمام"),
-                    isEnabled: joinCode.trimmingCharacters(in: .whitespaces).count >= 4
+                    isEnabled: joinCode.trimmingCharacters(in: .whitespaces).count >= 6
                 ) {
                     joinWithCode()
                 }
@@ -304,14 +336,41 @@ struct CirclesView: View {
     }
 
     private func joinWithCode() {
-        let code = joinCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard code.count >= 4 else { return }
+        let code = joinCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: " ", with: "")
+
+        let allowed = Set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+        let isValid = code.count >= 6 && code.count <= 12 && code.allSatisfy { allowed.contains($0) }
+
+        guard isValid else {
+            joinErrorMessage = L10n.text("That code doesn't look right. Double-check it and try again.", "الرمز غير صحيح. تحقق منه وأعد المحاولة.")
+            return
+        }
+
+        if circles.contains(where: { $0.id == code }) {
+            joinErrorMessage = L10n.text("You're already in this Circle.", "أنت بالفعل في هذه الحلقة.")
+            return
+        }
+
         let circle = UserCircle(id: code, name: "Circle \(code)")
         circles = CirclesStore.addOrUpdate(circle)
         activeCircleID = circle.id
         CirclesStore.setActiveID(circle.id)
         joinCode = ""
+        joinErrorMessage = nil
         showJoinSheet = false
+    }
+
+    private func copyActiveCode() {
+        guard let code = activeCircle?.id else { return }
+        UIPasteboard.general.string = code
+        withAnimation(.spring(response: 0.35)) { showCopiedToast = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            withAnimation(.easeOut) { showCopiedToast = false }
+        }
     }
 
     // MARK: - Circle Content
@@ -323,6 +382,7 @@ struct CirclesView: View {
                     circleSwitcher
                 }
                 circleHeader
+                circleCodeCard
                 youCard
                 membersWaitingState
                 additionalActions
@@ -331,6 +391,94 @@ struct CirclesView: View {
             .padding(.horizontal, 20)
             .padding(.top, 12)
         }
+    }
+
+    private var circleCodeCard: some View {
+        let code = activeCircle?.id ?? ""
+        let formatted = formatCode(code)
+        return VStack(spacing: 14) {
+            HStack {
+                Label {
+                    Text(L10n.text("Circle Code", "رمز الحلقة"))
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(NafsTheme.text)
+                } icon: {
+                    Image(systemName: "number")
+                        .foregroundStyle(NafsTheme.gold)
+                }
+                Spacer()
+                Text(L10n.text("Share to invite", "شارك للدعوة"))
+                    .font(.system(.caption2, weight: .medium))
+                    .foregroundStyle(NafsTheme.subtleText)
+            }
+
+            Text(formatted)
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .tracking(4)
+                .foregroundStyle(NafsTheme.gold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(NafsTheme.gold.opacity(0.08))
+                .clipShape(.rect(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(NafsTheme.gold.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                )
+                .contextMenu {
+                    Button {
+                        copyActiveCode()
+                    } label: {
+                        Label(L10n.text("Copy Code", "نسخ الرمز"), systemImage: "doc.on.doc")
+                    }
+                }
+
+            HStack(spacing: 10) {
+                Button {
+                    copyActiveCode()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.on.doc")
+                        Text(L10n.text("Copy Code", "نسخ الرمز"))
+                    }
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(NafsTheme.gold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(NafsTheme.gold.opacity(0.1))
+                    .clipShape(.capsule)
+                }
+
+                ShareLink(
+                    item: code,
+                    subject: Text("Join my Circle on Nafs"),
+                    message: Text("Join my Nafs Circle with code \(code). Download Nafs: \(NafsConstants.appStoreURL)")
+                ) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text(L10n.text("Share Code", "شارك الرمز"))
+                    }
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(NafsTheme.goldGradient)
+                    .clipShape(.capsule)
+                }
+            }
+        }
+        .padding(16)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private func formatCode(_ code: String) -> String {
+        guard code.count > 4 else { return code }
+        let mid = code.index(code.startIndex, offsetBy: code.count / 2)
+        return String(code[..<mid]) + "-" + String(code[mid...])
     }
 
     private var circleSwitcher: some View {
