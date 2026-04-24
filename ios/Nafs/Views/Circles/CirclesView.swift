@@ -1,18 +1,88 @@
 import SwiftUI
 import UserNotifications
 
+nonisolated struct UserCircle: Codable, Identifiable, Hashable, Sendable {
+    let id: String
+    var name: String
+}
+
+@MainActor
+enum CirclesStore {
+    private static let key = "nafs_circles"
+    private static let activeKey = "nafs_activeCircleID"
+
+    static func load() -> [UserCircle] {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: key),
+           let circles = try? JSONDecoder().decode([UserCircle].self, from: data) {
+            return circles
+        }
+        if defaults.bool(forKey: "nafs_hasCircle"),
+           let name = defaults.string(forKey: "nafs_circleName"),
+           let id = defaults.string(forKey: "nafs_circleID"),
+           !name.isEmpty, !id.isEmpty {
+            let migrated = [UserCircle(id: id, name: name)]
+            save(migrated)
+            return migrated
+        }
+        return []
+    }
+
+    static func save(_ circles: [UserCircle]) {
+        let defaults = UserDefaults.standard
+        if let data = try? JSONEncoder().encode(circles) {
+            defaults.set(data, forKey: key)
+        }
+        defaults.set(!circles.isEmpty, forKey: "nafs_hasCircle")
+    }
+
+    static func activeID() -> String? {
+        UserDefaults.standard.string(forKey: activeKey)
+    }
+
+    static func setActiveID(_ id: String?) {
+        if let id {
+            UserDefaults.standard.set(id, forKey: activeKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: activeKey)
+        }
+    }
+
+    static func addOrUpdate(_ circle: UserCircle) -> [UserCircle] {
+        var circles = load()
+        if let idx = circles.firstIndex(where: { $0.id == circle.id }) {
+            circles[idx] = circle
+        } else {
+            circles.append(circle)
+        }
+        save(circles)
+        return circles
+    }
+
+    static func makeCircleID() -> String {
+        let chars = Array("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+        return String((0..<8).map { _ in chars.randomElement()! })
+    }
+}
+
 struct CirclesView: View {
     let viewModel: AppViewModel
     let storeViewModel: StoreViewModel
     @Environment(LanguageManager.self) private var lang
-    @State private var hasCircle: Bool = false
-    @State private var circleName: String = ""
-    @State private var circleID: String = ""
+    @State private var circles: [UserCircle] = []
+    @State private var activeCircleID: String = ""
     @State private var showCreateSheet: Bool = false
-    @State private var showShareSheet: Bool = false
+    @State private var showJoinSheet: Bool = false
+    @State private var newCircleName: String = ""
+    @State private var joinCode: String = ""
+
+    private var activeCircle: UserCircle? {
+        circles.first(where: { $0.id == activeCircleID }) ?? circles.first
+    }
 
     private var inviteURLString: String {
-        NafsConstants.circleInviteURL(circleID: circleID, circleName: circleName)
+        guard let circle = activeCircle else { return NafsConstants.appStoreURL }
+        return NafsConstants.circleInviteURL(circleID: circle.id, circleName: circle.name)
     }
 
     private var inviteURL: URL {
@@ -20,7 +90,7 @@ struct CirclesView: View {
     }
 
     private var inviteMessage: String {
-        let name = circleName.isEmpty ? "my Circle" : circleName
+        let name = activeCircle?.name ?? "my Circle"
         return "Join \(name) on Nafs and let's hold each other accountable! Tap to join: \(inviteURLString)"
     }
 
@@ -29,10 +99,10 @@ struct CirclesView: View {
             NafsTheme.background.ignoresSafeArea()
 
             if viewModel.isPremium {
-                if hasCircle {
-                    circleContent
-                } else {
+                if circles.isEmpty {
                     emptyState
+                } else {
+                    circleContent
                 }
             } else {
                 PremiumGateView(
@@ -49,26 +119,39 @@ struct CirclesView: View {
             createCircleSheet
                 .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showJoinSheet) {
+            joinCircleSheet
+                .presentationDetents([.medium])
+        }
         .onAppear {
             loadCircleData()
+        }
+        .onOpenURL { url in
+            handleIncomingURL(url)
         }
     }
 
     private func loadCircleData() {
-        hasCircle = UserDefaults.standard.bool(forKey: "nafs_hasCircle")
-        circleName = UserDefaults.standard.string(forKey: "nafs_circleName") ?? ""
-        if let existing = UserDefaults.standard.string(forKey: "nafs_circleID"), !existing.isEmpty {
-            circleID = existing
-        } else if hasCircle {
-            let newID = Self.makeCircleID()
-            UserDefaults.standard.set(newID, forKey: "nafs_circleID")
-            circleID = newID
+        circles = CirclesStore.load()
+        if let stored = CirclesStore.activeID(), circles.contains(where: { $0.id == stored }) {
+            activeCircleID = stored
+        } else if let first = circles.first {
+            activeCircleID = first.id
+            CirclesStore.setActiveID(first.id)
         }
     }
 
-    private static func makeCircleID() -> String {
-        let chars = Array("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
-        return String((0..<8).map { _ in chars.randomElement()! })
+    private func handleIncomingURL(_ url: URL) {
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let items = comps.queryItems,
+              let id = items.first(where: { $0.name == "circle" })?.value,
+              !id.isEmpty else { return }
+        let name = items.first(where: { $0.name == "name" })?.value?
+            .removingPercentEncoding ?? "Invited Circle"
+        let circle = UserCircle(id: id, name: name)
+        circles = CirclesStore.addOrUpdate(circle)
+        activeCircleID = circle.id
+        CirclesStore.setActiveID(circle.id)
     }
 
     // MARK: - Empty State
@@ -104,12 +187,10 @@ struct CirclesView: View {
                     showCreateSheet = true
                 }
 
-                ShareLink(
-                    item: inviteURL,
-                    subject: Text("Join me on Nafs"),
-                    message: Text(inviteMessage)
-                ) {
-                    Text(L10n.text("Invite Friends", "ادعُ الأصدقاء"))
+                Button {
+                    showJoinSheet = true
+                } label: {
+                    Text(L10n.text("Join with Code", "الانضمام برمز"))
                         .font(.system(.body, weight: .semibold))
                         .foregroundStyle(NafsTheme.gold)
                         .frame(maxWidth: .infinity)
@@ -135,14 +216,14 @@ struct CirclesView: View {
                     .font(.system(.title3, weight: .bold))
                     .foregroundStyle(NafsTheme.text)
 
-                TextField(L10n.text("Circle name", "اسم الحلقة"), text: $circleName)
+                TextField(L10n.text("Circle name", "اسم الحلقة"), text: $newCircleName)
                     .font(.system(.body))
                     .textInputAutocapitalization(.words)
                     .padding(14)
                     .background(NafsTheme.card)
                     .clipShape(.rect(cornerRadius: 14))
                     .onSubmit {
-                        if !circleName.isEmpty {
+                        if !newCircleName.isEmpty {
                             createCircle()
                         }
                     }
@@ -151,7 +232,7 @@ struct CirclesView: View {
                     .font(.system(.caption))
                     .foregroundStyle(NafsTheme.subtleText)
 
-                NafsButton(title: L10n.text("Create Circle", "إنشاء حلقة"), isEnabled: !circleName.isEmpty) {
+                NafsButton(title: L10n.text("Create Circle", "إنشاء حلقة"), isEnabled: !newCircleName.isEmpty) {
                     createCircle()
                 }
 
@@ -162,6 +243,48 @@ struct CirclesView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(L10n.text("Cancel", "إلغاء")) {
                         showCreateSheet = false
+                        newCircleName = ""
+                    }
+                    .foregroundStyle(NafsTheme.gold)
+                }
+            }
+        }
+    }
+
+    private var joinCircleSheet: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Text(L10n.text("Join a Circle", "انضم إلى حلقة"))
+                    .font(.system(.title3, weight: .bold))
+                    .foregroundStyle(NafsTheme.text)
+
+                TextField(L10n.text("Enter invite code", "أدخل رمز الدعوة"), text: $joinCode)
+                    .font(.system(.body, design: .monospaced))
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled(true)
+                    .padding(14)
+                    .background(NafsTheme.card)
+                    .clipShape(.rect(cornerRadius: 14))
+
+                Text(L10n.text("Paste the code from your invite link", "الصق الرمز من رابط الدعوة"))
+                    .font(.system(.caption))
+                    .foregroundStyle(NafsTheme.subtleText)
+
+                NafsButton(
+                    title: L10n.text("Join Circle", "انضمام"),
+                    isEnabled: joinCode.trimmingCharacters(in: .whitespaces).count >= 4
+                ) {
+                    joinWithCode()
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(L10n.text("Cancel", "إلغاء")) {
+                        showJoinSheet = false
+                        joinCode = ""
                     }
                     .foregroundStyle(NafsTheme.gold)
                 }
@@ -170,26 +293,39 @@ struct CirclesView: View {
     }
 
     private func createCircle() {
-        let trimmed = circleName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = newCircleName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        circleName = trimmed
-        let newID = Self.makeCircleID()
-        circleID = newID
-        hasCircle = true
-        UserDefaults.standard.set(true, forKey: "nafs_hasCircle")
-        UserDefaults.standard.set(trimmed, forKey: "nafs_circleName")
-        UserDefaults.standard.set(newID, forKey: "nafs_circleID")
+        let circle = UserCircle(id: CirclesStore.makeCircleID(), name: trimmed)
+        circles = CirclesStore.addOrUpdate(circle)
+        activeCircleID = circle.id
+        CirclesStore.setActiveID(circle.id)
+        newCircleName = ""
         showCreateSheet = false
     }
 
-    // MARK: - Circle Content (real data only)
+    private func joinWithCode() {
+        let code = joinCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard code.count >= 4 else { return }
+        let circle = UserCircle(id: code, name: "Circle \(code)")
+        circles = CirclesStore.addOrUpdate(circle)
+        activeCircleID = circle.id
+        CirclesStore.setActiveID(circle.id)
+        joinCode = ""
+        showJoinSheet = false
+    }
+
+    // MARK: - Circle Content
 
     private var circleContent: some View {
         ScrollView {
             VStack(spacing: 20) {
+                if circles.count > 1 {
+                    circleSwitcher
+                }
                 circleHeader
                 youCard
                 membersWaitingState
+                additionalActions
                 Spacer(minLength: 100)
             }
             .padding(.horizontal, 20)
@@ -197,9 +333,40 @@ struct CirclesView: View {
         }
     }
 
+    private var circleSwitcher: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(circles) { circle in
+                    let isActive = circle.id == activeCircleID
+                    Button {
+                        activeCircleID = circle.id
+                        CirclesStore.setActiveID(circle.id)
+                    } label: {
+                        Text(circle.name)
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(isActive ? .white : NafsTheme.gold)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Group {
+                                    if isActive {
+                                        AnyView(NafsTheme.goldGradient)
+                                    } else {
+                                        AnyView(NafsTheme.gold.opacity(0.12))
+                                    }
+                                }
+                            )
+                            .clipShape(.capsule)
+                    }
+                }
+            }
+        }
+        .contentMargins(.horizontal, 0)
+    }
+
     private var circleHeader: some View {
         VStack(spacing: 12) {
-            Text(circleName)
+            Text(activeCircle?.name ?? "")
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(NafsTheme.text)
 
@@ -324,5 +491,39 @@ struct CirclesView: View {
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
         )
+    }
+
+    private var additionalActions: some View {
+        VStack(spacing: 10) {
+            Button {
+                showCreateSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                    Text(L10n.text("Create Another Circle", "إنشاء حلقة أخرى"))
+                }
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(NafsTheme.gold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(NafsTheme.gold.opacity(0.1))
+                .clipShape(.capsule)
+            }
+
+            Button {
+                showJoinSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.right.circle.fill")
+                    Text(L10n.text("Join with Code", "الانضمام برمز"))
+                }
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(NafsTheme.gold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(NafsTheme.gold.opacity(0.1))
+                .clipShape(.capsule)
+            }
+        }
     }
 }

@@ -13,6 +13,19 @@ struct ContentView: View {
         UserDefaults.standard.string(forKey: "nafs_userName") ?? "Friend"
     }
 
+    private func handleIncomingURL(_ url: URL) {
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let items = comps.queryItems,
+              let id = items.first(where: { $0.name == "circle" })?.value,
+              !id.isEmpty else { return }
+        let name = items.first(where: { $0.name == "name" })?.value?
+            .removingPercentEncoding ?? "Invited Circle"
+        let circle = UserCircle(id: id, name: name)
+        _ = CirclesStore.addOrUpdate(circle)
+        CirclesStore.setActiveID(circle.id)
+        navigationState.selectedTab = .more
+    }
+
     var body: some View {
         Group {
             if hasCompletedOnboarding && (hasSeenWelcome || showMainApp) {
@@ -45,6 +58,9 @@ struct ContentView: View {
             appViewModel.storeViewModel = storeViewModel
             await storeViewModel.checkStatus()
             appViewModel.isPremium = storeViewModel.isPremium
+        }
+        .onOpenURL { url in
+            handleIncomingURL(url)
         }
     }
 }

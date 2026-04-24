@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import UIKit
 
 struct NameScreenView: View {
     let vm: OnboardingViewModel
@@ -137,7 +138,20 @@ struct LocationScreenView: View {
                 } else {
                     NafsButton(title: NafsStrings.allowLocation.localized) {
                         hapticTrigger += 1
-                        locationService.requestPermission()
+                        let status = locationService.authorizationStatus
+                        switch status {
+                        case .notDetermined:
+                            locationService.requestPermission()
+                        case .denied, .restricted:
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        case .authorizedWhenInUse, .authorizedAlways:
+                            vm.locationGranted = true
+                            locationService.requestLocation()
+                        @unknown default:
+                            locationService.requestPermission()
+                        }
                     }
 
                     Button {

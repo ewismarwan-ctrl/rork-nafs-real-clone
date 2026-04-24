@@ -161,9 +161,7 @@ struct SettingsView: View {
     private var appSection: some View {
         Section {
             Button {
-                if let url = URL(string: NafsConstants.rateAppURL) {
-                    UIApplication.shared.open(url)
-                }
+                requestAppReview()
             } label: {
                 Label(NafsStrings.rateNafs.localized, systemImage: "star.fill")
                     .foregroundStyle(NafsTheme.text)
@@ -278,6 +276,15 @@ struct SettingsView: View {
             .disabled(isRestoring)
         } header: {
             Text(lang.isArabic ? "قانوني" : "Legal")
+        }
+    }
+
+    private func requestAppReview() {
+        if let scene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            AppStore.requestReview(in: scene)
+        } else if let url = URL(string: NafsConstants.rateAppURL) {
+            UIApplication.shared.open(url)
         }
     }
 
