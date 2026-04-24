@@ -280,12 +280,7 @@ struct SettingsView: View {
     }
 
     private func requestAppReview() {
-        if let scene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            AppStore.requestReview(in: scene)
-        } else if let url = URL(string: NafsConstants.rateAppURL) {
-            UIApplication.shared.open(url)
-        }
+        RatingService.shared.requestReview()
     }
 
     private var aboutSection: some View {

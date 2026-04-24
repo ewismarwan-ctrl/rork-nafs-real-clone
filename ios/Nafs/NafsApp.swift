@@ -6,6 +6,7 @@ import AVFoundation
 @main
 struct NafsApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         Purchases.logLevel = .debug
@@ -29,6 +30,9 @@ struct NafsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onChange(of: scenePhase) { _, newPhase in
+                    RatingService.shared.handleScenePhaseChange(newPhase)
+                }
         }
     }
 }

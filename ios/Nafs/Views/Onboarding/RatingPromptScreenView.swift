@@ -58,7 +58,7 @@ struct RatingPromptScreenView: View {
                 VStack(spacing: 12) {
                     NafsButton(title: lang.isArabic ? "قيّم نفس" : "Rate Nafs") {
                         hapticTrigger += 1
-                        requestReview()
+                        RatingService.shared.requestReview()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                             vm.goNext()
                         }
@@ -95,11 +95,4 @@ struct RatingPromptScreenView: View {
         }
     }
 
-    private func requestReview() {
-        guard let scene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else {
-            return
-        }
-        AppStore.requestReview(in: scene)
-    }
 }
