@@ -60,6 +60,11 @@ class ScreenTimeService {
         guard isAuthorized else { return }
         if activePrayerLock != nil && !isUnlocked {
             applyShields()
+            return
+        }
+        let savedMode = defaults.string(forKey: "nafs_focusMode_v2") ?? "auto"
+        if savedMode == "earn", !isUnlocked {
+            applyShields()
         }
     }
 
@@ -264,10 +269,19 @@ class ScreenTimeService {
                 unlockExpiresAt = expiry
                 removeShields()
                 scheduleRelock(at: expiry)
+                return
             } else {
                 defaults.removeObject(forKey: "nafs_fcUnlockExpiry")
             }
-        } else if activePrayerLock != nil, hasSelection, isAuthorized {
+        }
+
+        if activePrayerLock != nil, hasSelection, isAuthorized {
+            applyShields()
+            return
+        }
+
+        let savedMode = defaults.string(forKey: "nafs_focusMode_v2") ?? "auto"
+        if savedMode == "earn", hasSelection, isAuthorized {
             applyShields()
         }
     }

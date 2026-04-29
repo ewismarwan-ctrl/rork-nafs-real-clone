@@ -58,6 +58,20 @@ nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiabl
         }
     }
 
+    var screenTimeMinutes: Int {
+        switch self {
+        case .fardOnTime: return 15
+        case .fardLate: return 7
+        case .quran: return 10
+        case .dhikr: return 5
+        case .voluntaryFast: return 30
+        case .exercise: return 5
+        case .journal: return 5
+        case .sleepOnTime: return 10
+        case .guidedPlanStep: return 10
+        }
+    }
+
     var icon: String {
         switch self {
         case .fardOnTime: return "checkmark.seal.fill"

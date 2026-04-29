@@ -74,8 +74,18 @@ final class FocusEconomyService {
 
     @discardableResult
     func earn(from source: EarnSource) -> Int {
+        earn(baseMinutes: source.baseMinutes)
+    }
+
+    @discardableResult
+    func earn(baseMinutes: Int) -> Int {
         rolloverIfNeeded()
-        let multiplied = Int((Double(source.baseMinutes) * streakMultiplier).rounded())
+        guard baseMinutes > 0 else {
+            lastEarnedAmount = 0
+            earnFeedbackTrigger &+= 1
+            return 0
+        }
+        let multiplied = Int((Double(baseMinutes) * streakMultiplier).rounded())
         let allowed = min(multiplied, remainingDailyCap)
         guard allowed > 0 else {
             lastEarnedAmount = 0

@@ -17,6 +17,7 @@ struct FocusView: View {
     @State private var showPremiumGate: Bool = false
     @State private var showEarnPulse: Bool = false
     @State private var showEarnedAmount: Int = 0
+    @State private var pendingSpendMinutes: Int? = nil
 
     @Environment(LanguageManager.self) private var lang
 
@@ -92,6 +93,31 @@ struct FocusView: View {
                         showEarnPulse = false
                     }
                 }
+            }
+            .alert(
+                L10n.text("Confirm \(pendingSpendMinutes ?? 0) minutes", "تأكيد \(pendingSpendMinutes ?? 0) دقيقة"),
+                isPresented: Binding(
+                    get: { pendingSpendMinutes != nil },
+                    set: { if !$0 { pendingSpendMinutes = nil } }
+                )
+            ) {
+                Button(L10n.text("Cancel", "إلغاء"), role: .cancel) {
+                    pendingSpendMinutes = nil
+                }
+                Button(L10n.text("Unlock", "فتح")) {
+                    if let minutes = pendingSpendMinutes {
+                        if viewModel.focusEconomy.spend(minutes: minutes) {
+                            screenTimeService.temporaryUnlock(minutes: minutes)
+                            unlockSuccess.toggle()
+                        } else {
+                            unlockFailed.toggle()
+                        }
+                    }
+                    pendingSpendMinutes = nil
+                }
+            } message: {
+                let minutes = pendingSpendMinutes ?? 0
+                Text(L10n.text("Spend \(minutes) earned minute\(minutes == 1 ? "" : "s") to unlock your apps for \(minutes) minute\(minutes == 1 ? "" : "s").", "أنفق \(minutes) دقيقة مكتسبة لفتح تطبيقاتك لمدة \(minutes) دقيقة."))
             }
             .alert(L10n.text("Reset Discipline", "إعادة تعيين الانضباط"), isPresented: $showResetConfirm) {
                 Button(L10n.text("Cancel", "إلغاء"), role: .cancel) {}
@@ -467,12 +493,12 @@ struct FocusView: View {
             if let activePrayer = screenTimeService.activePrayerLock {
                 Button {
                     screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
-                    viewModel.focusEconomy.earn(from: .fard)
+                    viewModel.focusEconomy.earn(baseMinutes: HabitType.fardOnTime.screenTimeMinutes)
                     unlockSuccess.toggle()
                 } label: {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                        Text(L10n.text("Mark Prayer Complete (+15 min)", "تأكيد إتمام الصلاة (+15 د)"))
+                        Text(L10n.text("Mark Prayer Complete (+\(HabitType.fardOnTime.screenTimeMinutes) min)", "تأكيد إتمام الصلاة (+\(HabitType.fardOnTime.screenTimeMinutes) د)"))
                     }
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(.white)
@@ -545,9 +571,12 @@ struct FocusView: View {
 
     private var earnRulesGrid: some View {
         VStack(spacing: 8) {
-            earnRule(icon: EarnSource.fard.icon, title: L10n.text("Fard salah", "صلاة فرض"), reward: "+15 \(L10n.text("min", "د"))")
-            earnRule(icon: EarnSource.dhikr.icon, title: L10n.text("Dhikr session", "جلسة ذكر"), reward: "+5 \(L10n.text("min", "د"))")
-            earnRule(icon: EarnSource.quran.icon, title: L10n.text("Quran reading", "قراءة القرآن"), reward: "+10 \(L10n.text("min", "د"))")
+            earnRule(icon: HabitType.fardOnTime.icon, title: L10n.text("Fard salah on time", "صلاة فرض في وقتها"), reward: "+\(HabitType.fardOnTime.screenTimeMinutes) \(L10n.text("min", "د"))")
+            earnRule(icon: HabitType.fardLate.icon, title: L10n.text("Fard salah late", "صلاة فرض متأخرة"), reward: "+\(HabitType.fardLate.screenTimeMinutes) \(L10n.text("min", "د"))")
+            earnRule(icon: HabitType.quran.icon, title: L10n.text("Quran reading (10 min)", "قراءة القرآن (١٠ د)"), reward: "+\(HabitType.quran.screenTimeMinutes) \(L10n.text("min", "د"))")
+            earnRule(icon: HabitType.dhikr.icon, title: L10n.text("Dhikr session (100)", "جلسة ذكر (١٠٠)"), reward: "+\(HabitType.dhikr.screenTimeMinutes) \(L10n.text("min", "د"))")
+            earnRule(icon: HabitType.voluntaryFast.icon, title: L10n.text("Voluntary fast", "صيام تطوعي"), reward: "+\(HabitType.voluntaryFast.screenTimeMinutes) \(L10n.text("min", "د"))")
+            earnRule(icon: HabitType.sleepOnTime.icon, title: L10n.text("Sleep on time", "نوم في الوقت"), reward: "+\(HabitType.sleepOnTime.screenTimeMinutes) \(L10n.text("min", "د"))")
         }
     }
 
@@ -593,9 +622,8 @@ struct FocusView: View {
     private func spendButton(minutes: Int) -> some View {
         let canAfford = viewModel.focusEconomy.availableMinutes >= minutes
         return Button {
-            if viewModel.focusEconomy.spend(minutes: minutes) {
-                screenTimeService.temporaryUnlock(minutes: minutes)
-                unlockSuccess.toggle()
+            if canAfford {
+                pendingSpendMinutes = minutes
             } else {
                 unlockFailed.toggle()
             }

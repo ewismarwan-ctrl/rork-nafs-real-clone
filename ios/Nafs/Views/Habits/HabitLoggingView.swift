@@ -120,9 +120,23 @@ struct HabitRow: View {
                     Text(localizedName)
                         .font(.system(.body, weight: .medium))
                         .foregroundStyle(NafsTheme.text)
-                    Text("+\(habit.tokens) \(NafsStrings.hasanat.localized)")
-                        .font(.system(.caption, weight: .medium))
-                        .foregroundStyle(NafsTheme.gold)
+                    HStack(spacing: 6) {
+                        Text("+\(habit.tokens) \(NafsStrings.hasanat.localized)")
+                            .font(.system(.caption, weight: .medium))
+                            .foregroundStyle(NafsTheme.gold)
+                        if habit.screenTimeMinutes > 0 {
+                            Text("·")
+                                .font(.system(.caption, weight: .medium))
+                                .foregroundStyle(NafsTheme.subtleText)
+                            HStack(spacing: 3) {
+                                Image(systemName: "hourglass")
+                                    .font(.system(.caption2, weight: .semibold))
+                                Text(lang.isArabic ? "+\(habit.screenTimeMinutes) د شاشة" : "+\(habit.screenTimeMinutes) min screen time")
+                                    .font(.system(.caption, weight: .medium))
+                            }
+                            .foregroundStyle(NafsTheme.gold.opacity(0.8))
+                        }
+                    }
                 }
 
                 Spacer()

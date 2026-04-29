@@ -211,16 +211,7 @@ class AppViewModel {
     }
 
     private func awardFocusMinutes(for habit: HabitType) {
-        switch habit {
-        case .fardOnTime, .fardLate:
-            focusEconomy.earn(from: .fard)
-        case .quran:
-            focusEconomy.earn(from: .quran)
-        case .dhikr:
-            focusEconomy.earn(from: .dhikr)
-        default:
-            break
-        }
+        focusEconomy.earn(baseMinutes: habit.screenTimeMinutes)
     }
 
     func canLogHabit(_ habit: HabitType) -> Bool {
