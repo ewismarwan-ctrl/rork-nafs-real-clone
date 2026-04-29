@@ -60,6 +60,7 @@ class AppViewModel {
 
     var storeViewModel: StoreViewModel?
     let prayerService = PrayerTimeService()
+    let focusEconomy = FocusEconomyService()
 
     var tasbihCount: Int = 0
     var showFreePlanBanner: Bool = false
@@ -204,8 +205,22 @@ class AppViewModel {
         updateWeeklyEarned(tokens: habit.tokens)
         updateGardenFromHabit(habit)
         updateStreak()
+        awardFocusMinutes(for: habit)
 
         return true
+    }
+
+    private func awardFocusMinutes(for habit: HabitType) {
+        switch habit {
+        case .fardOnTime, .fardLate:
+            focusEconomy.earn(from: .fard)
+        case .quran:
+            focusEconomy.earn(from: .quran)
+        case .dhikr:
+            focusEconomy.earn(from: .dhikr)
+        default:
+            break
+        }
     }
 
     func canLogHabit(_ habit: HabitType) -> Bool {

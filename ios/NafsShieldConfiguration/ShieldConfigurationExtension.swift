@@ -30,9 +30,9 @@ nonisolated final class ShieldConfigurationExtension: ShieldConfigurationDataSou
             backgroundBlurStyle: .systemUltraThinMaterialDark,
             backgroundColor: background,
             icon: UIImage(systemName: "moon.stars.fill")?.withTintColor(gold, renderingMode: .alwaysOriginal),
-            title: ShieldConfiguration.Label(text: "Stay Focused", color: white),
-            subtitle: ShieldConfiguration.Label(text: "Locked for now. Stay focused.", color: muted),
-            primaryButtonLabel: ShieldConfiguration.Label(text: "Close", color: .black),
+            title: ShieldConfiguration.Label(text: "Access denied", color: white),
+            subtitle: ShieldConfiguration.Label(text: "Complete your discipline to continue.", color: muted),
+            primaryButtonLabel: ShieldConfiguration.Label(text: "Open Nafs", color: .black),
             primaryButtonBackgroundColor: softGold
         )
     }

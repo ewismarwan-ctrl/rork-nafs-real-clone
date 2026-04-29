@@ -131,14 +131,14 @@ class ScreenTimeService {
             defaults.removeObject(forKey: "nafs_fcUnlockExpiry")
         }
 
-        if focusMode == .discipline {
+        if focusMode == .earn {
             if !isUnlocked {
                 applyShields()
             }
             return
         }
 
-        guard focusMode == .prayer else {
+        guard focusMode == .auto else {
             if activePrayerLock == nil {
                 removeShields()
             }
@@ -186,7 +186,7 @@ class ScreenTimeService {
         sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLock")
         sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLockDate")
         removeShields()
-        evaluatePrayerLock(prayerTimes: prayerTimes, focusMode: .prayer)
+        evaluatePrayerLock(prayerTimes: prayerTimes, focusMode: .auto)
         if self.activePrayerLock != nil {
             applyShields()
         }

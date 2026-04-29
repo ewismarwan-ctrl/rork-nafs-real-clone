@@ -1,5 +1,6 @@
 import SwiftUI
 import StoreKit
+import RevenueCat
 
 struct SettingsView: View {
     let viewModel: AppViewModel
@@ -11,6 +12,8 @@ struct SettingsView: View {
     @State private var showLanguagePicker: Bool = false
     @State private var restoreAlert: RestoreAlert?
     @State private var isRestoring: Bool = false
+    @State private var appUserID: String = ""
+    @State private var copiedUserID: Bool = false
     @Environment(LanguageManager.self) private var lang
 
     private struct RestoreAlert: Identifiable {
@@ -29,6 +32,7 @@ struct SettingsView: View {
                 appSection
                 accountSection
                 legalSection
+                supportSection
                 aboutSection
             }
             .listStyle(.insetGrouped)
@@ -59,6 +63,7 @@ struct SettingsView: View {
             }
         .onAppear {
             editingName = viewModel.userName
+            appUserID = Purchases.shared.appUserID
         }
     }
 
@@ -281,6 +286,54 @@ struct SettingsView: View {
 
     private func requestAppReview() {
         RatingService.shared.requestReview()
+    }
+
+    private var supportSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(lang.isArabic ? "معرّف المستخدم" : "User ID")
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(NafsTheme.text)
+                Text(lang.isArabic ? "للدعم الفني فقط. شارك هذا المعرّف عند طلب المساعدة." : "For support only. Share this ID when requesting help.")
+                    .font(.system(.caption))
+                    .foregroundStyle(NafsTheme.subtleText)
+                HStack(spacing: 8) {
+                    Text(appUserID.isEmpty ? "—" : appUserID)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        UIPasteboard.general.string = appUserID
+                        copiedUserID = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(1.5))
+                            copiedUserID = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: copiedUserID ? "checkmark" : "doc.on.doc")
+                                .font(.system(.caption2, weight: .bold))
+                            Text(copiedUserID ? (lang.isArabic ? "تم النسخ" : "Copied") : (lang.isArabic ? "نسخ" : "Copy"))
+                                .font(.system(.caption, weight: .semibold))
+                        }
+                        .foregroundStyle(NafsTheme.gold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(NafsTheme.gold.opacity(0.1))
+                        .clipShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(appUserID.isEmpty)
+                }
+                .padding(.top, 2)
+                .sensoryFeedback(.success, trigger: copiedUserID)
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text(lang.isArabic ? "الدعم" : "Support")
+        }
     }
 
     private var aboutSection: some View {
