@@ -10,6 +10,7 @@ nonisolated struct UserCircle: Codable, Identifiable, Hashable, Sendable {
 enum CirclesStore {
     private static let key = "nafs_circles"
     private static let activeKey = "nafs_activeCircleID"
+    private static let registryKey = "nafs_knownCircles"
 
     static func load() -> [UserCircle] {
         let defaults = UserDefaults.standard
@@ -23,6 +24,7 @@ enum CirclesStore {
            !name.isEmpty, !id.isEmpty {
             let migrated = [UserCircle(id: id, name: name)]
             save(migrated)
+            registerKnown(migrated)
             return migrated
         }
         return []
@@ -59,6 +61,44 @@ enum CirclesStore {
         return circles
     }
 
+    static func remove(id: String) -> [UserCircle] {
+        var circles = load()
+        circles.removeAll { $0.id == id }
+        save(circles)
+        if activeID() == id {
+            setActiveID(circles.first?.id)
+        }
+        return circles
+    }
+
+    static func loadKnown() -> [UserCircle] {
+        guard let data = UserDefaults.standard.data(forKey: registryKey),
+              let known = try? JSONDecoder().decode([UserCircle].self, from: data) else {
+            return []
+        }
+        return known
+    }
+
+    static func registerKnown(_ circle: UserCircle) {
+        var known = loadKnown()
+        if let idx = known.firstIndex(where: { $0.id == circle.id }) {
+            known[idx] = circle
+        } else {
+            known.append(circle)
+        }
+        if let data = try? JSONEncoder().encode(known) {
+            UserDefaults.standard.set(data, forKey: registryKey)
+        }
+    }
+
+    static func registerKnown(_ circles: [UserCircle]) {
+        for c in circles { registerKnown(c) }
+    }
+
+    static func findKnown(id: String) -> UserCircle? {
+        loadKnown().first(where: { $0.id == id })
+    }
+
     static func makeCircleID() -> String {
         let chars = Array("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
         return String((0..<8).map { _ in chars.randomElement()! })
@@ -77,6 +117,7 @@ struct CirclesView: View {
     @State private var joinCode: String = ""
     @State private var showCopiedToast: Bool = false
     @State private var joinErrorMessage: String?
+    @State private var showLeaveConfirm: Bool = false
 
     private var activeCircle: UserCircle? {
         circles.first(where: { $0.id == activeCircleID }) ?? circles.first
@@ -144,6 +185,31 @@ struct CirclesView: View {
         .onOpenURL { url in
             handleIncomingURL(url)
         }
+        .alert(L10n.text("Leave Circle?", "مغادرة الحلقة؟"), isPresented: $showLeaveConfirm) {
+            Button(L10n.text("Cancel", "إلغاء"), role: .cancel) { }
+            Button(L10n.text("Leave", "مغادرة"), role: .destructive) {
+                leaveActiveCircle()
+            }
+        } message: {
+            Text(L10n.text("Are you sure you want to leave this circle?", "هل أنت متأكد أنك تريد مغادرة هذه الحلقة؟"))
+        }
+    }
+
+    private var leaveCircleButton: some View {
+        Button {
+            showLeaveConfirm = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                Text(L10n.text("Leave Circle", "مغادرة الحلقة"))
+            }
+            .font(.system(.subheadline, weight: .semibold))
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Color.red.opacity(0.1))
+            .clipShape(.capsule)
+        }
     }
 
     private func loadCircleData() {
@@ -164,6 +230,7 @@ struct CirclesView: View {
         let name = items.first(where: { $0.name == "name" })?.value?
             .removingPercentEncoding ?? "Invited Circle"
         let circle = UserCircle(id: id, name: name)
+        CirclesStore.registerKnown(circle)
         circles = CirclesStore.addOrUpdate(circle)
         activeCircleID = circle.id
         CirclesStore.setActiveID(circle.id)
@@ -328,11 +395,22 @@ struct CirclesView: View {
         let trimmed = newCircleName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let circle = UserCircle(id: CirclesStore.makeCircleID(), name: trimmed)
+        CirclesStore.registerKnown(circle)
         circles = CirclesStore.addOrUpdate(circle)
         activeCircleID = circle.id
         CirclesStore.setActiveID(circle.id)
         newCircleName = ""
         showCreateSheet = false
+    }
+
+    private func leaveActiveCircle() {
+        guard let id = activeCircle?.id else { return }
+        circles = CirclesStore.remove(id: id)
+        if let stored = CirclesStore.activeID(), circles.contains(where: { $0.id == stored }) {
+            activeCircleID = stored
+        } else {
+            activeCircleID = circles.first?.id ?? ""
+        }
     }
 
     private func joinWithCode() {
@@ -343,10 +421,10 @@ struct CirclesView: View {
             .replacingOccurrences(of: " ", with: "")
 
         let allowed = Set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
-        let isValid = code.count >= 6 && code.count <= 12 && code.allSatisfy { allowed.contains($0) }
+        let formatValid = code.count >= 6 && code.count <= 12 && code.allSatisfy { allowed.contains($0) }
 
-        guard isValid else {
-            joinErrorMessage = L10n.text("That code doesn't look right. Double-check it and try again.", "الرمز غير صحيح. تحقق منه وأعد المحاولة.")
+        guard formatValid else {
+            joinErrorMessage = L10n.text("Invalid circle code", "رمز الحلقة غير صالح")
             return
         }
 
@@ -355,10 +433,14 @@ struct CirclesView: View {
             return
         }
 
-        let circle = UserCircle(id: code, name: "Circle \(code)")
-        circles = CirclesStore.addOrUpdate(circle)
-        activeCircleID = circle.id
-        CirclesStore.setActiveID(circle.id)
+        guard let known = CirclesStore.findKnown(id: code) else {
+            joinErrorMessage = L10n.text("This circle invite is invalid or expired", "دعوة الحلقة غير صالحة أو منتهية")
+            return
+        }
+
+        circles = CirclesStore.addOrUpdate(known)
+        activeCircleID = known.id
+        CirclesStore.setActiveID(known.id)
         joinCode = ""
         joinErrorMessage = nil
         showJoinSheet = false
@@ -386,6 +468,7 @@ struct CirclesView: View {
                 youCard
                 membersWaitingState
                 additionalActions
+                leaveCircleButton
                 Spacer(minLength: 100)
             }
             .padding(.horizontal, 20)
