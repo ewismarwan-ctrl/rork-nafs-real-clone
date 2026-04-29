@@ -10,18 +10,7 @@ struct DhikrView: View {
     @Environment(LanguageManager.self) private var lang
 
     var body: some View {
-        Group {
-            if viewModel.isPremium {
-                dhikrContent
-            } else {
-                PremiumGateView(
-                    icon: "hands.sparkles.fill",
-                    title: lang.isArabic ? "ذكر" : "Dhikr",
-                    subtitle: lang.isArabic ? "عدّاد التسبيح متاح على نفس بريميوم." : "Tasbih counter for daily dhikr is available on Nafs Premium.",
-                    storeViewModel: storeViewModel
-                )
-            }
-        }
+        dhikrContent
         .background(NafsTheme.background.ignoresSafeArea())
         .navigationTitle(lang.isArabic ? "ذكر" : "Dhikr")
         .navigationBarTitleDisplayMode(.large)

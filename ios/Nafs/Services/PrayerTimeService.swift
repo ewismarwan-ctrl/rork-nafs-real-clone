@@ -44,6 +44,12 @@ class PrayerTimeService {
         }
     }
 
+    func invalidateCache() {
+        lastComputedDay = nil
+        lastComputedLat = nil
+        lastComputedLon = nil
+    }
+
     func fetchPrayerTimes(method: PrayerCalculationMethod, madhab: AsrMadhab = .shafi) async {
         if locationService.authorizationStatus == .notDetermined {
             locationService.requestPermission()

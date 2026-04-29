@@ -15,6 +15,8 @@ struct SettingsView: View {
     @State private var appUserID: String = ""
     @State private var copiedUserID: Bool = false
     @Environment(LanguageManager.self) private var lang
+    @Environment(AppearanceManager.self) private var appearance
+    @State private var showPrayerAdjustments: Bool = false
 
     private struct RestoreAlert: Identifiable {
         let id = UUID()
@@ -28,6 +30,7 @@ struct SettingsView: View {
         List {
                 profileSection
                 prayerSection
+                appearanceSection
                 languageSection
                 appSection
                 accountSection
@@ -52,6 +55,11 @@ struct SettingsView: View {
                     onDismiss: { showPaywall = false },
                     onSuccess: { showPaywall = false }
                 )
+            }
+            .sheet(isPresented: $showPrayerAdjustments) {
+                PrayerAdjustmentsSheet(viewModel: viewModel)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showLanguagePicker) {
                 LanguagePickerSheet(languageManager: lang)
@@ -115,6 +123,19 @@ struct SettingsView: View {
                 .tint(NafsTheme.gold)
             }
 
+            Button {
+                showPrayerAdjustments = true
+            } label: {
+                HStack {
+                    Label(lang.isArabic ? "تعديل الأوقات (دقائق)" : "Prayer Time Adjustments", systemImage: "slider.horizontal.3")
+                        .foregroundStyle(NafsTheme.text)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(.caption2, weight: .bold))
+                        .foregroundStyle(NafsTheme.subtleText)
+                }
+            }
+
             HStack {
                 Label(lang.isArabic ? "طريقة الحساب" : "Calculation Method", systemImage: "clock.badge.questionmark")
                     .foregroundStyle(NafsTheme.text)
@@ -133,6 +154,36 @@ struct SettingsView: View {
             }
         } header: {
             Text(NafsStrings.prayerTimes.localized)
+        }
+    }
+
+    private var appearanceSection: some View {
+        Section {
+            HStack {
+                Label(lang.isArabic ? "المظهر" : "Appearance", systemImage: "moon.stars.fill")
+                    .foregroundStyle(NafsTheme.text)
+                Spacer()
+                Menu {
+                    ForEach(AppearanceManager.Appearance.allCases) { mode in
+                        Button {
+                            appearance.appearance = mode
+                        } label: {
+                            HStack {
+                                Text(lang.isArabic ? mode.arabicName : mode.displayName)
+                                if appearance.appearance == mode {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Text(lang.isArabic ? appearance.appearance.arabicName : appearance.appearance.displayName)
+                        .font(.system(.subheadline))
+                        .foregroundStyle(NafsTheme.gold)
+                }
+            }
+        } header: {
+            Text(lang.isArabic ? "المظهر" : "Appearance")
         }
     }
 
@@ -364,6 +415,60 @@ struct SettingsView: View {
         }
     }
 
+}
+
+struct PrayerAdjustmentsSheet: View {
+    let viewModel: AppViewModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(LanguageManager.self) private var lang
+    @State private var offsets: [PrayerName: Int] = [:]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(PrayerName.allCases, id: \.rawValue) { prayer in
+                        HStack {
+                            Label(NafsStrings.prayerName(prayer), systemImage: prayer.icon)
+                                .foregroundStyle(NafsTheme.text)
+                            Spacer()
+                            Stepper(value: Binding(
+                                get: { offsets[prayer] ?? 0 },
+                                set: { newValue in
+                                    let clamped = max(-30, min(30, newValue))
+                                    offsets[prayer] = clamped
+                                    PrayerTimeService.setOffset(clamped, for: prayer)
+                                    Task { await viewModel.refreshPrayerTimes(forceRecompute: true) }
+                                }
+                            ), in: -30...30) {
+                                Text("\((offsets[prayer] ?? 0) >= 0 ? "+" : "")\(offsets[prayer] ?? 0) min")
+                                    .font(.system(.subheadline, design: .monospaced))
+                                    .foregroundStyle(NafsTheme.gold)
+                                    .frame(minWidth: 70, alignment: .trailing)
+                            }
+                        }
+                    }
+                } header: {
+                    Text(lang.isArabic ? "تعديل الأوقات" : "Per-Prayer Offset")
+                } footer: {
+                    Text(lang.isArabic
+                         ? "اضبط وقت كل صلاة بواقع ±30 دقيقة لتتطابق مع جدول مسجدك المحلي."
+                         : "Fine-tune each prayer by ±30 minutes to match your local mosque schedule. Used everywhere, including Focus.")
+                }
+            }
+            .navigationTitle(lang.isArabic ? "تعديل الأوقات" : "Prayer Adjustments")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(lang.isArabic ? "تم" : "Done") { dismiss() }
+                        .foregroundStyle(NafsTheme.gold)
+                }
+            }
+            .onAppear {
+                offsets = PrayerTimeService.offsets()
+            }
+        }
+    }
 }
 
 struct LanguagePickerSheet: View {

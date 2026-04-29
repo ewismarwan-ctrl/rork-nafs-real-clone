@@ -164,7 +164,8 @@ class AppViewModel {
         if hasUnlocked { scheduleRelockCheck() }
     }
 
-    func refreshPrayerTimes() async {
+    func refreshPrayerTimes(forceRecompute: Bool = false) async {
+        if forceRecompute { prayerService.invalidateCache() }
         await prayerService.fetchPrayerTimes(method: calculationMethod, madhab: asrMadhab)
         prayerTimes = prayerService.prayerTimes
         NotificationService.shared.schedulePrayerNotifications(

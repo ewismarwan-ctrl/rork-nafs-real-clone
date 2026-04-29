@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var storeViewModel = StoreViewModel()
     @State private var languageManager = LanguageManager()
     @State private var navigationState = AppNavigationState()
+    @State private var appearance = AppearanceManager()
     @State private var showMainApp: Bool = false
 
     private var userName: String {
@@ -30,7 +31,6 @@ struct ContentView: View {
         Group {
             if hasCompletedOnboarding && (hasSeenWelcome || showMainApp) {
                 MainTabView(viewModel: appViewModel, storeViewModel: storeViewModel, languageManager: languageManager)
-                    .preferredColorScheme(.light)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
             } else if hasCompletedOnboarding && !hasSeenWelcome {
                 WelcomeView(userName: userName) {
@@ -43,11 +43,14 @@ struct ContentView: View {
             } else {
                 OnboardingContainerView(storeViewModel: storeViewModel, languageManager: languageManager)
                     .preferredColorScheme(.light)
+                    .environment(appearance)
             }
         }
         .environment(\.layoutDirection, languageManager.layoutDirection)
         .environment(languageManager)
         .environment(navigationState)
+        .environment(appearance)
+        .preferredColorScheme(hasCompletedOnboarding ? appearance.appearance.colorScheme : .light)
         .id(languageManager.current)
         .animation(.spring(response: 0.5, dampingFraction: 0.9), value: hasCompletedOnboarding)
         .animation(.spring(response: 0.5, dampingFraction: 0.9), value: showMainApp)
@@ -163,11 +166,11 @@ struct MoreView: View {
 
                 Section(NafsStrings.features.localized) {
                     moreRow(icon: "checkmark.seal.fill", title: NafsStrings.logHabits.localized, subtitle: lang.isArabic ? "سجّل عباداتك اليومية" : "Log your daily worship habits", dest: .habits, premium: true)
-                    moreRow(icon: "hands.sparkles.fill", title: NafsStrings.dhikr.localized, subtitle: lang.isArabic ? "عدّاد التسبيح للذكر اليومي" : "Tasbih counter for daily dhikr", dest: .dhikr, premium: true)
+                    moreRow(icon: "hands.sparkles.fill", title: NafsStrings.dhikr.localized, subtitle: lang.isArabic ? "عدّاد التسبيح للذكر اليومي" : "Tasbih counter for daily dhikr", dest: .dhikr, premium: false)
                     moreRow(icon: "moon.stars", title: NafsStrings.muhasabah.localized, subtitle: lang.isArabic ? "محاسبة النفس اليومية" : "Daily self reflection", dest: .muhasabah, premium: true)
                     moreRow(icon: "map.fill", title: NafsStrings.guidedPlans.localized, subtitle: lang.isArabic ? "خطط للنمو الروحي" : "Structured spiritual growth", dest: .guidedPlans, premium: true)
                     moreRow(icon: "paperplane.fill", title: NafsStrings.sendDua.localized, subtitle: lang.isArabic ? "شارك أدعية جميلة" : "Share beautiful du'as", dest: .sendDua, premium: true)
-                    moreRow(icon: "location.north.fill", title: NafsStrings.qiblaFinder.localized, subtitle: lang.isArabic ? "اعثر على اتجاه مكة" : "Find the direction of Mecca", dest: .qibla, premium: true)
+                    moreRow(icon: "location.north.fill", title: NafsStrings.qiblaFinder.localized, subtitle: lang.isArabic ? "اعثر على اتجاه مكة" : "Find the direction of Mecca", dest: .qibla, premium: false)
                 }
 
                 Section(NafsStrings.growth.localized) {
@@ -200,7 +203,7 @@ struct MoreView: View {
                 case .habits:
                     HabitLoggingView(viewModel: viewModel, storeViewModel: storeViewModel)
                 case .qibla:
-                    QiblaFinderView(storeViewModel: storeViewModel, isPremium: viewModel.isPremium)
+                    QiblaFinderView(storeViewModel: storeViewModel, isPremium: true)
                 case .garden:
                     GardenOfDeedsView(viewModel: viewModel, storeViewModel: storeViewModel)
                 case .circles:
