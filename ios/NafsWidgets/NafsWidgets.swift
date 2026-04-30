@@ -336,12 +336,13 @@ nonisolated struct NextPrayerEntry: TimelineEntry {
     let date: Date
     let next: SharedPrayerTime?
     let locationName: String
+    var family: WidgetFamily = .systemSmall
 }
 
 nonisolated struct NextPrayerProvider: TimelineProvider {
     func placeholder(in context: Context) -> NextPrayerEntry {
         let loaded = WidgetPrayerLoader.load()
-        return NextPrayerEntry(date: .now, next: WidgetPrayerLoader.nextPrayer(from: loaded.times), locationName: loaded.location)
+        return NextPrayerEntry(date: .now, next: WidgetPrayerLoader.nextPrayer(from: loaded.times), locationName: loaded.location, family: context.family)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NextPrayerEntry) -> Void) {
@@ -351,9 +352,20 @@ nonisolated struct NextPrayerProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextPrayerEntry>) -> Void) {
         let loaded = WidgetPrayerLoader.load()
         let next = WidgetPrayerLoader.nextPrayer(from: loaded.times)
-        let entry = NextPrayerEntry(date: .now, next: next, locationName: loaded.location)
-        let refresh = next?.time ?? Calendar.current.date(byAdding: .hour, value: 1, to: .now)!
-        completion(Timeline(entries: [entry], policy: .after(refresh)))
+        let now = Date.now
+        var entries: [NextPrayerEntry] = [
+            NextPrayerEntry(date: now, next: next, locationName: loaded.location, family: context.family)
+        ]
+        if let nextTime = next?.time, nextTime > now {
+            let total = Int(nextTime.timeIntervalSince(now))
+            for offset in stride(from: 60, through: min(60 * 60, total), by: 60) {
+                let d = now.addingTimeInterval(TimeInterval(offset))
+                if d >= nextTime { break }
+                entries.append(NextPrayerEntry(date: d, next: next, locationName: loaded.location, family: context.family))
+            }
+        }
+        let refresh = next?.time ?? Calendar.current.date(byAdding: .hour, value: 1, to: now)!
+        completion(Timeline(entries: entries, policy: .after(refresh)))
     }
 }
 
@@ -367,7 +379,89 @@ struct NextPrayerWidgetView: View {
         return f
     }()
 
+    private static let shortTimeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm"
+        return f
+    }()
+
     var body: some View {
+        switch family {
+        case .accessoryInline:
+            inlineView
+        case .accessoryCircular:
+            circularView
+        case .accessoryRectangular:
+            rectangularView
+        default:
+            homeView
+        }
+    }
+
+    @ViewBuilder private var inlineView: some View {
+        if let next = entry.next {
+            Text("\(next.name) \(Self.shortTimeFormatter.string(from: next.time))")
+        } else {
+            Text("Nafs — Loading")
+        }
+    }
+
+    @ViewBuilder private var circularView: some View {
+        if let next = entry.next {
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 0) {
+                    Text(next.name.prefix(4).uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .minimumScaleFactor(0.7)
+                    Text(Self.shortTimeFormatter.string(from: next.time))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                }
+                .padding(2)
+            }
+        } else {
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "moon.stars.fill")
+            }
+        }
+    }
+
+    @ViewBuilder private var rectangularView: some View {
+        if let next = entry.next {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Image(systemName: "sun.and.horizon.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("NEXT PRAYER")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(0.5)
+                }
+                Text("\(next.name) · \(Self.timeFormatter.string(from: next.time))")
+                    .font(.system(size: 14, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(next.time, style: .relative)
+                    .font(.system(size: 11, weight: .medium))
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Nafs")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Enable location")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder private var homeView: some View {
         ZStack {
             WidgetBackground()
             VStack(alignment: .leading, spacing: 6) {
@@ -423,11 +517,106 @@ nonisolated struct NextPrayerWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: NextPrayerProvider()) { entry in
             NextPrayerWidgetView(entry: entry)
-                .containerBackground(for: .widget) { WidgetBackground() }
+                .containerBackground(for: .widget) {
+                    switch entry.family {
+                    case .accessoryCircular, .accessoryRectangular, .accessoryInline:
+                        Color.clear
+                    default:
+                        WidgetBackground()
+                    }
+                }
         }
         .configurationDisplayName("Next Prayer")
-        .description("Your next salah with a live countdown.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .description("Your next salah with a live countdown. Add to Lock Screen for instant glance.")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+// MARK: - Lock Screen Daily Prayers Widget
+
+struct DailyPrayersAccessoryView: View {
+    let entry: PrayerTimesEntry
+    @Environment(\.widgetFamily) private var family
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm"
+        return f
+    }()
+
+    private var nextPrayer: SharedPrayerTime? {
+        WidgetPrayerLoader.nextPrayer(from: entry.prayers, now: entry.date)
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            if let n = nextPrayer {
+                Text("\(n.name) \(Self.timeFormatter.string(from: n.time))")
+            } else {
+                Text("Nafs Prayers")
+            }
+        case .accessoryRectangular:
+            rectangularView
+        case .accessoryCircular:
+            ZStack {
+                AccessoryWidgetBackground()
+                if let n = nextPrayer {
+                    VStack(spacing: 0) {
+                        Text(n.name.prefix(4).uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(Self.timeFormatter.string(from: n.time))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+                    }
+                    .padding(2)
+                } else {
+                    Image(systemName: "moon.stars.fill")
+                }
+            }
+        default:
+            PrayerTimesWidgetView(entry: entry)
+        }
+    }
+
+    @ViewBuilder private var rectangularView: some View {
+        let prayers = entry.prayers.prefix(5)
+        if prayers.isEmpty {
+            Text("Loading prayer times…")
+        } else {
+            HStack(spacing: 6) {
+                ForEach(Array(prayers), id: \.name) { p in
+                    VStack(spacing: 1) {
+                        Text(String(p.name.prefix(3)).uppercased())
+                            .font(.system(size: 9, weight: .bold))
+                        Text(Self.timeFormatter.string(from: p.time))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .opacity(p.time < entry.date ? 0.5 : 1)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+nonisolated struct DailyPrayersWidget: Widget {
+    let kind: String = "NafsDailyPrayers"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: PrayerTimesProvider()) { entry in
+            DailyPrayersAccessoryView(entry: entry)
+                .containerBackground(for: .widget) { Color.clear }
+        }
+        .configurationDisplayName("Daily Prayers (Lock Screen)")
+        .description("All five daily prayer times on your Lock Screen.")
+        .supportedFamilies([.accessoryRectangular, .accessoryInline, .accessoryCircular])
     }
 }
 
