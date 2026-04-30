@@ -225,15 +225,19 @@ struct CirclesView: View {
     private func handleIncomingURL(_ url: URL) {
         guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let items = comps.queryItems,
-              let id = items.first(where: { $0.name == "circle" })?.value,
-              !id.isEmpty else { return }
+              let rawID = items.first(where: { $0.name == "circle" })?.value,
+              !rawID.isEmpty else { return }
+        let id = Self.normalizeCode(rawID)
+        guard !id.isEmpty else { return }
         let name = items.first(where: { $0.name == "name" })?.value?
             .removingPercentEncoding ?? "Invited Circle"
         let circle = UserCircle(id: id, name: name)
         CirclesStore.registerKnown(circle)
-        circles = CirclesStore.addOrUpdate(circle)
-        activeCircleID = circle.id
-        CirclesStore.setActiveID(circle.id)
+        if !circles.contains(where: { $0.id == id }) {
+            circles = CirclesStore.addOrUpdate(circle)
+        }
+        activeCircleID = id
+        CirclesStore.setActiveID(id)
     }
 
     // MARK: - Empty State
@@ -413,12 +417,20 @@ struct CirclesView: View {
         }
     }
 
-    private func joinWithCode() {
-        let code = joinCode
+    private static func normalizeCode(_ raw: String) -> String {
+        let stripped = raw
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
             .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "O", with: "0")
+            .replacingOccurrences(of: "I", with: "1")
+            .replacingOccurrences(of: "L", with: "1")
+        return stripped
+    }
+
+    private func joinWithCode() {
+        let code = Self.normalizeCode(joinCode)
 
         let allowed = Set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
         let formatValid = code.count >= 6 && code.count <= 12 && code.allSatisfy { allowed.contains($0) }
@@ -428,19 +440,22 @@ struct CirclesView: View {
             return
         }
 
-        if circles.contains(where: { $0.id == code }) {
+        if let existing = circles.first(where: { $0.id == code }) {
+            activeCircleID = existing.id
+            CirclesStore.setActiveID(existing.id)
+            joinCode = ""
             joinErrorMessage = L10n.text("You're already in this Circle.", "أنت بالفعل في هذه الحلقة.")
             return
         }
 
-        guard let known = CirclesStore.findKnown(id: code) else {
-            joinErrorMessage = L10n.text("This circle invite is invalid or expired", "دعوة الحلقة غير صالحة أو منتهية")
-            return
-        }
+        let known = CirclesStore.findKnown(id: code)
+        let resolvedName = known?.name ?? L10n.text("Circle \(code.prefix(4))", "حلقة \(code.prefix(4))")
+        let circle = UserCircle(id: code, name: resolvedName)
 
-        circles = CirclesStore.addOrUpdate(known)
-        activeCircleID = known.id
-        CirclesStore.setActiveID(known.id)
+        CirclesStore.registerKnown(circle)
+        circles = CirclesStore.addOrUpdate(circle)
+        activeCircleID = circle.id
+        CirclesStore.setActiveID(circle.id)
         joinCode = ""
         joinErrorMessage = nil
         showJoinSheet = false
