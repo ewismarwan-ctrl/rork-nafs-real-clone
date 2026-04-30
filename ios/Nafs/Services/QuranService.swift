@@ -50,7 +50,7 @@ nonisolated final class QuranService: Sendable {
         var result: [QuranAyah] = []
         for verse in decoded.verses {
             let arabic = verse.text_uthmani.trimmingCharacters(in: .whitespacesAndNewlines)
-            let translationText = verse.translations?.first.map { stripHTML($0.text) } ?? ""
+            let translationText = verse.translations?.first.map { sanitizeTranslation($0.text) } ?? ""
             let global = SurahInfo.globalAyahNumber(surah: surahNumber, ayahInSurah: verse.verse_number)
             result.append(QuranAyah(
                 id: global,
@@ -62,17 +62,54 @@ nonisolated final class QuranService: Sendable {
         return result
     }
 
-    private func stripHTML(_ text: String) -> String {
+    private func sanitizeTranslation(_ text: String) -> String {
         var output = text
+
+        let footnoteTagPatterns = [
+            "<sup[^>]*>.*?</sup>",
+            "<sub[^>]*>.*?</sub>",
+            "<a[^>]*foot_note[^>]*>.*?</a>"
+        ]
+        for pattern in footnoteTagPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) {
+                let range = NSRange(output.startIndex..., in: output)
+                output = regex.stringByReplacingMatches(in: output, options: [], range: range, withTemplate: "")
+            }
+        }
+
         if let regex = try? NSRegularExpression(pattern: "<[^>]+>", options: []) {
             let range = NSRange(output.startIndex..., in: output)
             output = regex.stringByReplacingMatches(in: output, options: [], range: range, withTemplate: "")
         }
+
         output = output
             .replacingOccurrences(of: "&quot;", with: "\"")
             .replacingOccurrences(of: "&#39;", with: "'")
             .replacingOccurrences(of: "&amp;", with: "&")
             .replacingOccurrences(of: "&nbsp;", with: " ")
+
+        let inlineMarkerPatterns = [
+            "\\s*\\(\\d{1,3}\\)",
+            "\\s*\\[\\d{1,3}\\]",
+            "[\u{2070}\u{00B9}\u{00B2}\u{00B3}\u{2074}-\u{2079}]+"
+        ]
+        for pattern in inlineMarkerPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+                let range = NSRange(output.startIndex..., in: output)
+                output = regex.stringByReplacingMatches(in: output, options: [], range: range, withTemplate: "")
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: "\\s{2,}", options: []) {
+            let range = NSRange(output.startIndex..., in: output)
+            output = regex.stringByReplacingMatches(in: output, options: [], range: range, withTemplate: " ")
+        }
+        output = output
+            .replacingOccurrences(of: " ,", with: ",")
+            .replacingOccurrences(of: " .", with: ".")
+            .replacingOccurrences(of: " ;", with: ";")
+            .replacingOccurrences(of: " :", with: ":")
+
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -112,7 +149,7 @@ nonisolated final class QuranService: Sendable {
         guard let url = cacheURL(surahNumber: surahNumber),
               let data = try? Data(contentsOf: url),
               let cached = try? JSONDecoder().decode([CachedAyah].self, from: data) else { return nil }
-        return cached.map { QuranAyah(id: $0.id, numberInSurah: $0.numberInSurah, arabicText: $0.arabicText, translation: $0.translation) }
+        return cached.map { QuranAyah(id: $0.id, numberInSurah: $0.numberInSurah, arabicText: $0.arabicText, translation: sanitizeTranslation($0.translation)) }
     }
 }
 
