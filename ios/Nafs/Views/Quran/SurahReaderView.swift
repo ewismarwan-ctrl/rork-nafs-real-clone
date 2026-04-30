@@ -31,9 +31,10 @@ struct SurahReaderView: View {
                         ayahList
                     }
 
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 120)
                 }
             }
+            .scrollIndicators(.hidden)
             .onChange(of: audioPlayer.currentGlobalAyah) { _, newAyah in
                 guard newAyah > 0 else { return }
                 withAnimation(.easeInOut(duration: 0.4)) {
@@ -91,10 +92,13 @@ struct SurahReaderView: View {
                         .fill(NafsTheme.gold.opacity(0.3))
                         .frame(width: 60, height: 1)
                     Text("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ")
-                        .font(.custom("Geeza Pro", size: 30).weight(.semibold))
+                        .font(.custom("Geeza Pro", size: 26).weight(.semibold))
                         .foregroundStyle(NafsTheme.gold)
                         .multilineTextAlignment(.center)
-                        .lineSpacing(18)
+                        .lineSpacing(14)
+                        .minimumScaleFactor(0.7)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity)
                         .environment(\.layoutDirection, .rightToLeft)
                     Rectangle()
                         .fill(NafsTheme.gold.opacity(0.3))
@@ -305,11 +309,12 @@ private struct AyahRowView: View {
             Button(action: onTap) {
                 VStack(spacing: 18) {
                     Text(ayahText)
-                        .font(.custom("Geeza Pro", size: 32).weight(.regular))
+                        .font(.custom("Geeza Pro", size: 26).weight(.regular))
                         .foregroundStyle(NafsTheme.text)
                         .multilineTextAlignment(.center)
-                        .lineSpacing(24)
-                        .tracking(0.5)
+                        .lineSpacing(20)
+                        .minimumScaleFactor(0.7)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
                         .environment(\.layoutDirection, .rightToLeft)
@@ -323,12 +328,14 @@ private struct AyahRowView: View {
                         .font(.system(.subheadline))
                         .foregroundStyle(NafsTheme.subtleText)
                         .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                         .lineSpacing(6)
                 }
             }
 
             if isSelected {
+                ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     Button(action: onPlayFromHere) {
                         HStack(spacing: 4) {
@@ -372,12 +379,12 @@ private struct AyahRowView: View {
                         .clipShape(.capsule)
                     }
 
-                    Spacer()
+                }
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.vertical, 24)
         .background(isCurrentlyPlaying ? NafsTheme.gold.opacity(0.04) : .clear)
     }
