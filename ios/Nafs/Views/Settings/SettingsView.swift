@@ -595,6 +595,19 @@ struct AboutNafsSheet: View {
                 }
                 .padding(.horizontal, 24)
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Credits")
+                        .font(.system(.headline, weight: .bold))
+                        .foregroundStyle(NafsTheme.text)
+                    Text("Quran text (Uthmani script) and English translation (Saheeh International) powered by Quran.com / Quran Foundation API.")
+                        .font(.system(.footnote))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .lineSpacing(3)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+
                 Spacer(minLength: 40)
             }
         }

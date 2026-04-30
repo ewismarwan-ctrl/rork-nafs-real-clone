@@ -36,24 +36,6 @@ nonisolated struct QuranBookmark: Identifiable, Codable, Sendable {
     }
 }
 
-nonisolated struct QuranEditionsResponse: Codable, Sendable {
-    let code: Int
-    let data: [QuranSurahResponse]
-}
-
-nonisolated struct QuranSurahResponse: Codable, Sendable {
-    let number: Int
-    let name: String
-    let englishName: String
-    let ayahs: [QuranAyahResponse]
-}
-
-nonisolated struct QuranAyahResponse: Codable, Sendable {
-    let number: Int
-    let text: String
-    let numberInSurah: Int
-}
-
 extension SurahInfo {
     static let all: [SurahInfo] = [
         SurahInfo(id: 1, arabicName: "ٱلْفَاتِحَة", englishName: "Al-Fatihah", meaning: "The Opening", ayahCount: 7, revelationType: "Meccan"),
