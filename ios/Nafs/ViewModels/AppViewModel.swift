@@ -77,7 +77,7 @@ class AppViewModel {
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: "nafs_calcMethod")
-            Task { await refreshPrayerTimes() }
+            Task { await refreshPrayerTimes(forceRecompute: true) }
         }
     }
 
@@ -89,7 +89,7 @@ class AppViewModel {
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: "nafs_asrMadhab")
-            Task { await refreshPrayerTimes() }
+            Task { await refreshPrayerTimes(forceRecompute: true) }
         }
     }
 
@@ -178,6 +178,13 @@ class AppViewModel {
             prayerTimes.map { (name: $0.name.rawValue, time: $0.time) },
             locationName: prayerService.locationName
         )
+        // Pre-compute next 7 days so widgets stay accurate even when the app isn't opened.
+        let multiDay = await prayerService.computeUpcomingDays(
+            method: calculationMethod,
+            madhab: asrMadhab,
+            days: 7
+        )
+        SharedDataService.syncMultiDayPrayerTimes(multiDay)
     }
 
     func requirePremium(feature: String, benefit: String) -> Bool {

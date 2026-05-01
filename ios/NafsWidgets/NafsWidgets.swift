@@ -106,15 +106,41 @@ nonisolated struct SharedPrayerTime: Codable, Sendable {
     let time: Date
 }
 
+nonisolated struct SharedPrayerDay: Codable, Sendable {
+    let dayStart: Date
+    let times: [SharedPrayerTime]
+}
+
 nonisolated enum WidgetPrayerLoader {
-    static func load() -> (times: [SharedPrayerTime], location: String) {
-        guard let shared = WidgetTheme.shared,
-              let data = shared.data(forKey: "nafs_prayerTimes"),
-              let decoded = try? JSONDecoder().decode([SharedPrayerTime].self, from: data) else {
-            return (fallback(), "")
-        }
+    static func load(for date: Date = .now) -> (times: [SharedPrayerTime], location: String) {
+        guard let shared = WidgetTheme.shared else { return (fallback(for: date), "") }
         let location = shared.string(forKey: "nafs_locationName") ?? ""
-        return (decoded, location)
+
+        // Prefer multi-day data so widgets remain accurate after midnight.
+        if let data = shared.data(forKey: "nafs_prayerTimesMultiDay"),
+           let days = try? JSONDecoder().decode([SharedPrayerDay].self, from: data) {
+            let cal = Calendar(identifier: .gregorian)
+            let target = cal.startOfDay(for: date)
+            if let today = days.first(where: { cal.isDate($0.dayStart, inSameDayAs: target) }) {
+                return (today.times, location)
+            }
+            // Fallback to next available day if today's data is missing.
+            if let next = days.first(where: { $0.dayStart >= target }) {
+                return (next.times, location)
+            }
+        }
+
+        // Legacy single-day payload.
+        if let data = shared.data(forKey: "nafs_prayerTimes"),
+           let decoded = try? JSONDecoder().decode([SharedPrayerTime].self, from: data) {
+            let cal = Calendar(identifier: .gregorian)
+            // Only trust the legacy payload if it's for the requested day.
+            if let first = decoded.first, cal.isDate(first.time, inSameDayAs: date) {
+                return (decoded, location)
+            }
+        }
+
+        return (fallback(for: date), location)
     }
 
     static func nextPrayer(from times: [SharedPrayerTime], now: Date = .now) -> SharedPrayerTime? {
@@ -122,9 +148,9 @@ nonisolated enum WidgetPrayerLoader {
             ?? times.sorted { $0.time < $1.time }.last
     }
 
-    private static func fallback() -> [SharedPrayerTime] {
+    private static func fallback(for date: Date = .now) -> [SharedPrayerTime] {
         let cal = Calendar.current
-        let base = cal.startOfDay(for: .now)
+        let base = cal.startOfDay(for: date)
         let raw: [(String, Int, Int)] = [
             ("Fajr", 5, 15),
             ("Dhuhr", 12, 30),
@@ -247,10 +273,14 @@ nonisolated struct PrayerTimesProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<PrayerTimesEntry>) -> Void) {
-        let loaded = WidgetPrayerLoader.load()
-        let entry = PrayerTimesEntry(date: .now, prayers: loaded.times, locationName: loaded.location)
-        let next = loaded.times.first(where: { $0.time > .now })?.time ?? Calendar.current.date(byAdding: .hour, value: 1, to: .now)!
-        completion(Timeline(entries: [entry], policy: .after(next)))
+        let now = Date.now
+        let loaded = WidgetPrayerLoader.load(for: now)
+        let entry = PrayerTimesEntry(date: now, prayers: loaded.times, locationName: loaded.location)
+        let cal = Calendar(identifier: .gregorian)
+        let nextMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) ?? now.addingTimeInterval(3600)
+        let nextPrayer = loaded.times.first(where: { $0.time > now })?.time
+        let refresh = [nextPrayer, nextMidnight].compactMap { $0 }.min() ?? nextMidnight
+        completion(Timeline(entries: [entry], policy: .after(refresh)))
     }
 }
 
@@ -350,9 +380,9 @@ nonisolated struct NextPrayerProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextPrayerEntry>) -> Void) {
-        let loaded = WidgetPrayerLoader.load()
-        let next = WidgetPrayerLoader.nextPrayer(from: loaded.times)
         let now = Date.now
+        let loaded = WidgetPrayerLoader.load(for: now)
+        let next = WidgetPrayerLoader.nextPrayer(from: loaded.times)
         var entries: [NextPrayerEntry] = [
             NextPrayerEntry(date: now, next: next, locationName: loaded.location, family: context.family)
         ]
@@ -364,7 +394,9 @@ nonisolated struct NextPrayerProvider: TimelineProvider {
                 entries.append(NextPrayerEntry(date: d, next: next, locationName: loaded.location, family: context.family))
             }
         }
-        let refresh = next?.time ?? Calendar.current.date(byAdding: .hour, value: 1, to: now)!
+        let cal = Calendar(identifier: .gregorian)
+        let nextMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) ?? now.addingTimeInterval(3600)
+        let refresh = [next?.time, nextMidnight].compactMap { $0 }.min() ?? nextMidnight
         completion(Timeline(entries: entries, policy: .after(refresh)))
     }
 }

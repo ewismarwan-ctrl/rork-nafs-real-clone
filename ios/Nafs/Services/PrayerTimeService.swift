@@ -188,6 +188,49 @@ class PrayerTimeService {
         return .isna
     }
 
+    /// Compute prayer times for the next N days (starting today) using current location.
+    /// Returns one array of (name, time) per day. Used to keep widgets accurate across day rollovers.
+    func computeUpcomingDays(method: PrayerCalculationMethod, madhab: AsrMadhab, days: Int) async -> [[(name: String, time: Date)]] {
+        guard let lat = locationService.lastLatitude,
+              let lon = locationService.lastLongitude else {
+            return []
+        }
+
+        let resolvedMethod: PrayerCalculationMethod = (method == .auto)
+            ? Self.detectMethod(lat: lat, lon: lon)
+            : method
+
+        let coords = Coordinates(latitude: lat, longitude: lon)
+        var params = resolvedMethod.adhanParams
+        params.madhab = (madhab == .hanafi) ? .hanafi : .shafi
+
+        let cal = Calendar(identifier: .gregorian)
+        let offsets = Self.offsets()
+        var result: [[(name: String, time: Date)]] = []
+
+        for offset in 0..<days {
+            guard let day = cal.date(byAdding: .day, value: offset, to: .now) else { continue }
+            let comps = cal.dateComponents([.year, .month, .day], from: day)
+            guard let times = PrayerTimes(coordinates: coords, date: comps, calculationParameters: params) else { continue }
+
+            let raw: [(PrayerName, Date)] = [
+                (.fajr, times.fajr),
+                (.dhuhr, times.dhuhr),
+                (.asr, times.asr),
+                (.maghrib, times.maghrib),
+                (.isha, times.isha),
+            ]
+            let dayTimes: [(name: String, time: Date)] = raw.map { name, rawDate in
+                let off = offsets[name] ?? 0
+                let adjusted = rawDate.addingTimeInterval(TimeInterval(off * 60))
+                return (name: name.rawValue, time: Self.roundToMinute(adjusted))
+            }
+            result.append(dayTimes)
+        }
+
+        return result
+    }
+
     private func reverseGeocode(lat: Double, lon: Double) {
         let geocoder = CLGeocoder()
         let location = CLLocation(latitude: lat, longitude: lon)
