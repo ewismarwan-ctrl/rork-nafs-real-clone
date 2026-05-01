@@ -101,6 +101,11 @@ enum CirclesStore {
 
     static func makeCircleID() -> String {
         let chars = Array("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+        let known = Set(loadKnown().map { $0.id })
+        for _ in 0..<32 {
+            let candidate = String((0..<8).map { _ in chars.randomElement()! })
+            if !known.contains(candidate) { return candidate }
+        }
         return String((0..<8).map { _ in chars.randomElement()! })
     }
 }
@@ -357,7 +362,18 @@ struct CirclesView: View {
                         RoundedRectangle(cornerRadius: 14)
                             .strokeBorder(NafsTheme.gold.opacity(0.3), lineWidth: 1)
                     )
-                    .onChange(of: joinCode) { _, _ in
+                    .onChange(of: joinCode) { _, newValue in
+                        let allowed = Set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+                        let cleaned = String(newValue
+                            .uppercased()
+                            .unicodeScalars
+                            .filter { allowed.contains(Character($0)) }
+                            .prefix(8))
+                            .map { String($0) }
+                            .joined()
+                        if cleaned != joinCode {
+                            joinCode = cleaned
+                        }
                         if joinErrorMessage != nil { joinErrorMessage = nil }
                     }
 
@@ -375,7 +391,7 @@ struct CirclesView: View {
 
                 NafsButton(
                     title: L10n.text("Join Circle", "انضمام"),
-                    isEnabled: joinCode.trimmingCharacters(in: .whitespaces).count >= 6
+                    isEnabled: Self.normalizeCode(joinCode).count == 8
                 ) {
                     joinWithCode()
                 }
@@ -418,44 +434,47 @@ struct CirclesView: View {
     }
 
     private static func normalizeCode(_ raw: String) -> String {
-        let stripped = raw
+        let allowed = Set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+        let upper = raw
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
             .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "O", with: "0")
-            .replacingOccurrences(of: "I", with: "1")
-            .replacingOccurrences(of: "L", with: "1")
-        return stripped
+        let filtered = upper.unicodeScalars.compactMap { scalar -> Character? in
+            let ch = Character(scalar)
+            return allowed.contains(ch) ? ch : nil
+        }
+        return String(filtered.prefix(8))
     }
 
     private func joinWithCode() {
         let code = Self.normalizeCode(joinCode)
 
-        let allowed = Set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
-        let formatValid = code.count >= 6 && code.count <= 12 && code.allSatisfy { allowed.contains($0) }
-
-        guard formatValid else {
+        guard code.count == 8 else {
             joinErrorMessage = L10n.text("Invalid circle code", "رمز الحلقة غير صالح")
             return
         }
 
+        // If user is already a member of this circle, just switch to it.
         if let existing = circles.first(where: { $0.id == code }) {
             activeCircleID = existing.id
             CirclesStore.setActiveID(existing.id)
-            joinCode = ""
             joinErrorMessage = L10n.text("You're already in this Circle.", "أنت بالفعل في هذه الحلقة.")
             return
         }
 
-        let known = CirclesStore.findKnown(id: code)
-        let resolvedName = known?.name ?? L10n.text("Circle \(code.prefix(4))", "حلقة \(code.prefix(4))")
-        let circle = UserCircle(id: code, name: resolvedName)
+        // Only allow joining circles that have been registered locally
+        // (e.g. via an opened invite link or an earlier creation). Random codes
+        // must NEVER auto-create a new circle from this flow.
+        guard let known = CirclesStore.findKnown(id: code) else {
+            joinErrorMessage = L10n.text("Invalid circle code", "رمز الحلقة غير صالح")
+            return
+        }
 
-        CirclesStore.registerKnown(circle)
-        circles = CirclesStore.addOrUpdate(circle)
-        activeCircleID = circle.id
-        CirclesStore.setActiveID(circle.id)
+        CirclesStore.registerKnown(known)
+        circles = CirclesStore.addOrUpdate(known)
+        activeCircleID = known.id
+        CirclesStore.setActiveID(known.id)
         joinCode = ""
         joinErrorMessage = nil
         showJoinSheet = false

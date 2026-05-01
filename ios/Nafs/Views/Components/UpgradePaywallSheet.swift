@@ -12,6 +12,14 @@ struct UpgradePaywallSheet: View {
     @State private var isRestoring: Bool = false
     @State private var purchaseError: String?
 
+    private var headline: String {
+        let trimmed = feature.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return L10n.text("Unlock Nafs Premium", "افتح نفس بريميوم")
+        }
+        return L10n.text("Unlock \(trimmed) with Nafs Premium", "افتح \(trimmed) مع نفس بريميوم")
+    }
+
     private var benefits: [(String, String)] {
         [
             ("lock.shield.fill", L10n.text("Lock distracting apps during prayer times", "اقفل التطبيقات أثناء الصلاة")),
@@ -28,10 +36,11 @@ struct UpgradePaywallSheet: View {
                     Spacer().frame(height: 4)
 
                     VStack(spacing: 8) {
-                        Text(L10n.text("Take control of your Deen.", "تحكّم في دينك."))
+                        Text(headline)
                             .font(.system(.title2, weight: .bold))
                             .foregroundStyle(NafsTheme.text)
                             .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(L10n.text("Block distractions. Pray on time.", "احجب المشتتات. صلِّ في وقتها."))
                             .font(.system(.subheadline, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
