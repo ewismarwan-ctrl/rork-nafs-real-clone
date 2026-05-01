@@ -31,6 +31,11 @@ nonisolated struct PrayerTime: Identifiable, Sendable {
     }
 }
 
+nonisolated enum HabitFrequency: String, Sendable {
+    case daily
+    case weekly
+}
+
 nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiable {
     case fardOnTime = "Fard Salah on time"
     case fardLate = "Fard Salah late"
@@ -41,6 +46,23 @@ nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiabl
     case journal = "Journal"
     case sleepOnTime = "Sleep on time"
     case guidedPlanStep = "Guided Plan step"
+    // New core daily habits
+    case morningDhikr = "Morning Dhikr"
+    case eveningDhikr = "Evening Dhikr"
+    case istighfar = "Istighfar"
+    case salawat = "Salawat"
+    // Optional daily
+    case fajrOnTime = "Wake up for Fajr on time"
+    case prayInMasjid = "Pray in the Masjid"
+    case noPhoneBeforeFajr = "No phone before Fajr"
+    case lowerGaze = "Lower gaze"
+    case avoidSin = "Avoid a sin"
+    case dailyCharity = "Daily charity"
+    case dailyDua = "Daily dua"
+    // Weekly
+    case jumuah = "Jumu'ah"
+    case surahKahf = "Surah Al-Kahf"
+    case learningSession = "Learning session"
 
     var id: String { rawValue }
 
@@ -55,6 +77,18 @@ nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiabl
         case .journal: return 20
         case .sleepOnTime: return 30
         case .guidedPlanStep: return 35
+        case .morningDhikr, .eveningDhikr: return 25
+        case .istighfar, .salawat: return 20
+        case .fajrOnTime: return 40
+        case .prayInMasjid: return 60
+        case .noPhoneBeforeFajr: return 25
+        case .lowerGaze: return 20
+        case .avoidSin: return 30
+        case .dailyCharity: return 40
+        case .dailyDua: return 15
+        case .jumuah: return 75
+        case .surahKahf: return 60
+        case .learningSession: return 35
         }
     }
 
@@ -69,6 +103,7 @@ nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiabl
         case .journal: return 5
         case .sleepOnTime: return 10
         case .guidedPlanStep: return 10
+        default: return 0
         }
     }
 
@@ -83,18 +118,42 @@ nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiabl
         case .journal: return "pencil.and.scribble"
         case .sleepOnTime: return "bed.double.fill"
         case .guidedPlanStep: return "map.fill"
+        case .morningDhikr: return "sunrise.fill"
+        case .eveningDhikr: return "sunset.fill"
+        case .istighfar: return "heart.text.square.fill"
+        case .salawat: return "sparkles"
+        case .fajrOnTime: return "alarm.fill"
+        case .prayInMasjid: return "building.columns.fill"
+        case .noPhoneBeforeFajr: return "iphone.slash"
+        case .lowerGaze: return "eye.slash.fill"
+        case .avoidSin: return "shield.lefthalf.filled"
+        case .dailyCharity: return "hands.and.sparkles.fill"
+        case .dailyDua: return "hand.raised.fill"
+        case .jumuah: return "calendar.badge.clock"
+        case .surahKahf: return "book.closed.fill"
+        case .learningSession: return "graduationcap.fill"
         }
     }
 
     var category: String {
         switch self {
-        case .fardOnTime, .fardLate: return "Salah"
-        case .quran: return "Quran"
-        case .dhikr: return "Dhikr"
+        case .fardOnTime, .fardLate, .fajrOnTime, .prayInMasjid: return "Salah"
+        case .quran, .surahKahf: return "Quran"
+        case .dhikr, .morningDhikr, .eveningDhikr, .istighfar, .salawat, .dailyDua: return "Dhikr"
         case .voluntaryFast: return "Fasting"
-        case .exercise, .sleepOnTime: return "Wellness"
+        case .exercise, .sleepOnTime, .noPhoneBeforeFajr: return "Wellness"
         case .journal: return "Reflection"
-        case .guidedPlanStep: return "Plans"
+        case .guidedPlanStep, .learningSession: return "Plans"
+        case .lowerGaze, .avoidSin: return "Discipline"
+        case .dailyCharity: return "Charity"
+        case .jumuah: return "Weekly"
+        }
+    }
+
+    var frequency: HabitFrequency {
+        switch self {
+        case .jumuah, .surahKahf, .learningSession: return .weekly
+        default: return .daily
         }
     }
 }

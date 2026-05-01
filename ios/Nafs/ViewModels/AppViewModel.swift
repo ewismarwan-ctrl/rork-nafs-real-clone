@@ -188,12 +188,24 @@ class AppViewModel {
         return false
     }
 
+    private func logKey(for habit: HabitType) -> String {
+        switch habit.frequency {
+        case .daily:
+            return habit.rawValue + "_" + DateFormatter.localizedString(from: .now, dateStyle: .short, timeStyle: .none)
+        case .weekly:
+            let cal = Calendar.current
+            let week = cal.component(.weekOfYear, from: .now)
+            let year = cal.component(.yearForWeekOfYear, from: .now)
+            return habit.rawValue + "_W\(year)-\(week)"
+        }
+    }
+
     func logHabit(_ habit: HabitType) -> Bool {
         guard isPremium else {
             _ = requirePremium(feature: "Habit Logging", benefit: "Your deeds deserve to be counted. Start your free trial.")
             return false
         }
-        let key = habit.rawValue + "_" + DateFormatter.localizedString(from: .now, dateStyle: .short, timeStyle: .none)
+        let key = logKey(for: habit)
         guard !todayLogs.contains(key) else { return false }
         todayLogs.insert(key)
         saveTodayLogs()
@@ -206,6 +218,7 @@ class AppViewModel {
         updateWeeklyEarned(tokens: habit.tokens)
         updateGardenFromHabit(habit)
         updateStreak()
+        updateHabitStreak(habit)
         awardFocusMinutes(for: habit)
 
         return true
@@ -217,8 +230,64 @@ class AppViewModel {
 
     func canLogHabit(_ habit: HabitType) -> Bool {
         guard isPremium else { return true }
-        let key = habit.rawValue + "_" + DateFormatter.localizedString(from: .now, dateStyle: .short, timeStyle: .none)
-        return !todayLogs.contains(key)
+        return !todayLogs.contains(logKey(for: habit))
+    }
+
+    func habitStreak(_ habit: HabitType) -> Int {
+        UserDefaults.standard.integer(forKey: "nafs_habitStreak_\(habit.rawValue)")
+    }
+
+    private func updateHabitStreak(_ habit: HabitType) {
+        let lastKey = "nafs_habitLastLog_\(habit.rawValue)"
+        let streakKey = "nafs_habitStreak_\(habit.rawValue)"
+        let cal = Calendar.current
+        let last = UserDefaults.standard.object(forKey: lastKey) as? Date
+        let now = Date.now
+        var current = UserDefaults.standard.integer(forKey: streakKey)
+
+        switch habit.frequency {
+        case .daily:
+            if let last {
+                if cal.isDateInToday(last) { return }
+                if cal.isDateInYesterday(last) { current += 1 } else { current = 1 }
+            } else {
+                current = 1
+            }
+        case .weekly:
+            let nowWeek = cal.component(.weekOfYear, from: now)
+            let nowYear = cal.component(.yearForWeekOfYear, from: now)
+            if let last {
+                let lastWeek = cal.component(.weekOfYear, from: last)
+                let lastYear = cal.component(.yearForWeekOfYear, from: last)
+                if lastWeek == nowWeek && lastYear == nowYear { return }
+                let diffWeeks = (nowYear - lastYear) * 52 + (nowWeek - lastWeek)
+                if diffWeeks == 1 { current += 1 } else { current = 1 }
+            } else {
+                current = 1
+            }
+        }
+        UserDefaults.standard.set(current, forKey: streakKey)
+        UserDefaults.standard.set(now, forKey: lastKey)
+    }
+
+    var optionalHabits: Set<String> {
+        get {
+            let arr = UserDefaults.standard.stringArray(forKey: "nafs_optionalHabits") ?? []
+            return Set(arr)
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue), forKey: "nafs_optionalHabits")
+        }
+    }
+
+    func toggleOptionalHabit(_ habit: HabitType) {
+        var current = optionalHabits
+        if current.contains(habit.rawValue) {
+            current.remove(habit.rawValue)
+        } else {
+            current.insert(habit.rawValue)
+        }
+        optionalHabits = current
     }
 
     func spendHasanatForScreenTimeUnlock(option: UnlockOption) -> Bool {

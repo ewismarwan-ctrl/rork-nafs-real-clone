@@ -3,17 +3,40 @@ import SwiftUI
 struct HabitLoggingView: View {
     let viewModel: AppViewModel
     let storeViewModel: StoreViewModel
-    @State private var loggedHabit: HabitType?
     @State private var showTasbih: Bool = false
+    @State private var showAddHabit: Bool = false
     @Environment(LanguageManager.self) private var lang
 
-    private var categories: [(String, [HabitType])] {
-        [
-            (NafsStrings.prayer.localized, [.fardOnTime, .fardLate]),
-            (lang.isArabic ? "القرآن والذكر" : "Quran & Dhikr", [.quran, .dhikr]),
-            (lang.isArabic ? "الصيام والعافية" : "Fasting & Wellness", [.voluntaryFast, .exercise, .sleepOnTime]),
-            (lang.isArabic ? "التأمل والخطط" : "Reflection & Plans", [.journal, .guidedPlanStep]),
-        ]
+    // Curated default habits shown to every user.
+    private let coreDailyHabits: [HabitType] = [
+        .fardOnTime,    // 5 Daily Prayers
+        .quran,         // Quran Reading
+        .morningDhikr,
+        .eveningDhikr,
+        .istighfar,
+        .salawat,
+    ]
+
+    // Optional habits the user can opt into.
+    private let optionalCatalog: [HabitType] = [
+        .fajrOnTime,
+        .prayInMasjid,
+        .noPhoneBeforeFajr,
+        .lowerGaze,
+        .avoidSin,
+        .dailyCharity,
+        .dailyDua,
+    ]
+
+    private let weeklyHabits: [HabitType] = [
+        .jumuah,
+        .surahKahf,
+        .learningSession,
+    ]
+
+    private var enabledOptional: [HabitType] {
+        let set = viewModel.optionalHabits
+        return optionalCatalog.filter { set.contains($0.rawValue) }
     }
 
     var body: some View {
@@ -24,7 +47,7 @@ struct HabitLoggingView: View {
                 PremiumGateView(
                     icon: "checkmark.seal.fill",
                     title: lang.isArabic ? "تسجيل العادات" : "Habit Logging",
-                    subtitle: lang.isArabic ? "أعمالك تستحق أن تُحصى. افتح تسجيل العادات مع نفس بريميوم." : "Your deeds deserve to be counted. Unlock habit logging with Nafs Premium.",
+                    subtitle: lang.isArabic ? "ابقَ على ثبات. سجّل عباداتك مع نفس بريميوم." : "Stay consistent. Log your acts of worship with Nafs Premium.",
                     storeViewModel: storeViewModel
                 )
             }
@@ -36,40 +59,100 @@ struct HabitLoggingView: View {
             TasbihCounterSheet(viewModel: viewModel)
                 .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showAddHabit) {
+            AddOptionalHabitsSheet(viewModel: viewModel, catalog: optionalCatalog)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     private var habitContent: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                ForEach(categories, id: \.0) { category, habits in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(category)
-                            .font(.system(.subheadline, weight: .semibold))
-                            .foregroundStyle(NafsTheme.subtleText)
-                            .textCase(.uppercase)
-                            .tracking(1)
+            VStack(alignment: .leading, spacing: 28) {
+                header
 
-                        ForEach(habits) { habit in
-                            HabitRow(
-                                habit: habit,
-                                isLogged: !viewModel.canLogHabit(habit),
-                                loggedHabit: $loggedHabit
-                            ) {
-                                if habit == .dhikr {
-                                    showTasbih = true
-                                } else {
-                                    let _ = viewModel.logHabit(habit)
-                                    loggedHabit = habit
-                                }
-                            }
-                        }
-                    }
+                section(
+                    title: lang.isArabic ? "اليومية" : "Daily",
+                    habits: coreDailyHabits
+                )
+
+                if !enabledOptional.isEmpty {
+                    section(
+                        title: lang.isArabic ? "إضافية" : "Optional",
+                        habits: enabledOptional
+                    )
                 }
 
-                Spacer(minLength: 100)
+                addOptionalButton
+
+                section(
+                    title: lang.isArabic ? "أسبوعية" : "Weekly",
+                    habits: weeklyHabits
+                )
+
+                Spacer(minLength: 80)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 12)
+            .padding(.top, 8)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(lang.isArabic ? "ابقَ على ثبات" : "Stay consistent")
+                .font(.system(.title3, weight: .semibold))
+                .foregroundStyle(NafsTheme.text)
+            Text(lang.isArabic ? "أكمل عباداتك اليوم." : "Complete your habits for today.")
+                .font(.system(.subheadline))
+                .foregroundStyle(NafsTheme.subtleText)
+        }
+    }
+
+    private func section(title: String, habits: [HabitType]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(NafsTheme.subtleText)
+                .textCase(.uppercase)
+                .tracking(1)
+
+            ForEach(habits) { habit in
+                HabitRow(
+                    habit: habit,
+                    isLogged: !viewModel.canLogHabit(habit),
+                    streak: viewModel.habitStreak(habit)
+                ) {
+                    if habit == .dhikr {
+                        showTasbih = true
+                    } else {
+                        let _ = viewModel.logHabit(habit)
+                    }
+                }
+            }
+        }
+    }
+
+    private var addOptionalButton: some View {
+        Button {
+            showAddHabit = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(.body, weight: .semibold))
+                Text(lang.isArabic ? "أضف عادة" : "Add a habit")
+                    .font(.system(.subheadline, weight: .semibold))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(.footnote, weight: .semibold))
+                    .foregroundStyle(NafsTheme.subtleText)
+            }
+            .foregroundStyle(NafsTheme.gold)
+            .padding(14)
+            .background(NafsTheme.card)
+            .clipShape(.rect(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
+            )
         }
     }
 }
@@ -77,23 +160,43 @@ struct HabitLoggingView: View {
 struct HabitRow: View {
     let habit: HabitType
     let isLogged: Bool
-    @Binding var loggedHabit: HabitType?
+    let streak: Int
     let action: () -> Void
     @State private var burstTrigger: Bool = false
     @Environment(LanguageManager.self) private var lang
 
     private var localizedName: String {
-        guard lang.isArabic else { return habit.rawValue }
+        if lang.isArabic {
+            switch habit {
+            case .fardOnTime: return "الصلوات الخمس"
+            case .fardLate: return "صلاة الفريضة متأخرة"
+            case .quran: return "قراءة القرآن"
+            case .dhikr: return "جلسة ذكر"
+            case .voluntaryFast: return "صيام تطوعي"
+            case .exercise: return "تمرين"
+            case .journal: return "يوميات"
+            case .sleepOnTime: return "نوم في الوقت"
+            case .guidedPlanStep: return "خطوة خطة إرشادية"
+            case .morningDhikr: return "أذكار الصباح"
+            case .eveningDhikr: return "أذكار المساء"
+            case .istighfar: return "الاستغفار"
+            case .salawat: return "الصلاة على النبي ﷺ"
+            case .fajrOnTime: return "الاستيقاظ للفجر في وقته"
+            case .prayInMasjid: return "الصلاة في المسجد"
+            case .noPhoneBeforeFajr: return "لا هاتف قبل الفجر"
+            case .lowerGaze: return "غض البصر"
+            case .avoidSin: return "اجتناب ذنب"
+            case .dailyCharity: return "صدقة يومية"
+            case .dailyDua: return "دعاء يومي"
+            case .jumuah: return "صلاة الجمعة"
+            case .surahKahf: return "سورة الكهف"
+            case .learningSession: return "جلسة تعلم"
+            }
+        }
         switch habit {
-        case .fardOnTime: return "صلاة الفريضة في وقتها"
-        case .fardLate: return "صلاة الفريضة متأخرة"
-        case .quran: return "القرآن (١٠ دقائق)"
-        case .dhikr: return "جلسة ذكر"
-        case .voluntaryFast: return "صيام تطوعي"
-        case .exercise: return "تمرين"
-        case .journal: return "يوميات"
-        case .sleepOnTime: return "نوم في الوقت"
-        case .guidedPlanStep: return "خطوة خطة إرشادية"
+        case .fardOnTime: return "5 Daily Prayers"
+        case .quran: return "Quran Reading"
+        default: return habit.rawValue
         }
     }
 
@@ -113,29 +216,24 @@ struct HabitRow: View {
                         .font(.system(.body))
                         .foregroundStyle(isLogged ? NafsTheme.gold : NafsTheme.subtleText)
                         .symbolEffect(.bounce, value: burstTrigger)
-                    GoldParticleBurst(trigger: burstTrigger)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(localizedName)
                         .font(.system(.body, weight: .medium))
                         .foregroundStyle(NafsTheme.text)
-                    HStack(spacing: 6) {
-                        Text("+\(habit.tokens) \(NafsStrings.hasanat.localized)")
-                            .font(.system(.caption, weight: .medium))
-                            .foregroundStyle(NafsTheme.gold)
-                        if habit.screenTimeMinutes > 0 {
-                            Text("·")
+                    if streak > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(.caption2, weight: .semibold))
+                            Text(lang.isArabic ? "سلسلة \(streak) \(habit.frequency == .weekly ? "أسبوع" : "يوم")" : "\(streak) \(habit.frequency == .weekly ? "week" : "day") streak")
                                 .font(.system(.caption, weight: .medium))
-                                .foregroundStyle(NafsTheme.subtleText)
-                            HStack(spacing: 3) {
-                                Image(systemName: "hourglass")
-                                    .font(.system(.caption2, weight: .semibold))
-                                Text(lang.isArabic ? "+\(habit.screenTimeMinutes) د شاشة" : "+\(habit.screenTimeMinutes) min screen time")
-                                    .font(.system(.caption, weight: .medium))
-                            }
-                            .foregroundStyle(NafsTheme.gold.opacity(0.8))
                         }
+                        .foregroundStyle(NafsTheme.gold.opacity(0.85))
+                    } else {
+                        Text(habit.frequency == .weekly ? (lang.isArabic ? "أسبوعي" : "Weekly") : (lang.isArabic ? "يومي" : "Daily"))
+                            .font(.system(.caption, weight: .medium))
+                            .foregroundStyle(NafsTheme.subtleText)
                     }
                 }
 
@@ -146,13 +244,9 @@ struct HabitRow: View {
                         .font(.system(.title3))
                         .foregroundStyle(NafsTheme.gold)
                 } else {
-                    Text(NafsStrings.log.localized)
-                        .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(NafsTheme.goldGradient)
-                        .clipShape(.capsule)
+                    Image(systemName: "circle")
+                        .font(.system(.title3))
+                        .foregroundStyle(NafsTheme.subtleText.opacity(0.6))
                 }
             }
             .padding(14)
@@ -165,6 +259,75 @@ struct HabitRow: View {
         }
         .disabled(isLogged)
         .sensoryFeedback(.impact(weight: .medium), trigger: burstTrigger)
+    }
+}
+
+struct AddOptionalHabitsSheet: View {
+    let viewModel: AppViewModel
+    let catalog: [HabitType]
+    @Environment(\.dismiss) private var dismiss
+    @Environment(LanguageManager.self) private var lang
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(catalog) { habit in
+                        let isOn = viewModel.optionalHabits.contains(habit.rawValue)
+                        Button {
+                            viewModel.toggleOptionalHabit(habit)
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: habit.icon)
+                                    .font(.system(.body))
+                                    .foregroundStyle(isOn ? NafsTheme.gold : NafsTheme.subtleText)
+                                    .frame(width: 32)
+                                Text(localizedName(for: habit))
+                                    .font(.system(.body, weight: .medium))
+                                    .foregroundStyle(NafsTheme.text)
+                                Spacer()
+                                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(.title3))
+                                    .foregroundStyle(isOn ? NafsTheme.gold : NafsTheme.subtleText.opacity(0.6))
+                            }
+                            .padding(14)
+                            .background(NafsTheme.card)
+                            .clipShape(.rect(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(isOn ? NafsTheme.gold.opacity(0.25) : NafsTheme.cardBorder, lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .background(NafsTheme.background)
+            .navigationTitle(lang.isArabic ? "أضف عادة" : "Add a habit")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(lang.isArabic ? "تم" : "Done") { dismiss() }
+                        .foregroundStyle(NafsTheme.gold)
+                }
+            }
+        }
+    }
+
+    private func localizedName(for habit: HabitType) -> String {
+        if lang.isArabic {
+            switch habit {
+            case .fajrOnTime: return "الاستيقاظ للفجر في وقته"
+            case .prayInMasjid: return "الصلاة في المسجد"
+            case .noPhoneBeforeFajr: return "لا هاتف قبل الفجر"
+            case .lowerGaze: return "غض البصر"
+            case .avoidSin: return "اجتناب ذنب"
+            case .dailyCharity: return "صدقة يومية"
+            case .dailyDua: return "دعاء يومي"
+            default: return habit.rawValue
+            }
+        }
+        return habit.rawValue
     }
 }
 
