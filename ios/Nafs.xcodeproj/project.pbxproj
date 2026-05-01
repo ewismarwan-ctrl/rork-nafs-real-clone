@@ -962,6 +962,7 @@
 		XX76C5E012B0C4C75A09D4XX /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = NafsWidgets/NafsWidgets.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = app.rork.4lq2ucv31aityltnkks3n.nafswidgets;
 				PRODUCT_NAME = NafsWidgets;
 				SWIFT_VERSION = 5.0;
@@ -984,6 +985,7 @@
 		XX909051CFA0D0321AADBDXX /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = NafsWidgets/NafsWidgets.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = app.rork.4lq2ucv31aityltnkks3n.nafswidgets;
 				PRODUCT_NAME = NafsWidgets;
 				SWIFT_VERSION = 5.0;

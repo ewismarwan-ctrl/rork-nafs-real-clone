@@ -12,9 +12,12 @@ class PrayerTimeService {
 
     private let locationService = LocationService()
     private var hasFetched: Bool = false
-    private var lastComputedLat: Double?
-    private var lastComputedLon: Double?
+    private(set) var lastComputedLat: Double?
+    private(set) var lastComputedLon: Double?
     private var lastComputedDay: Int?
+
+    /// True only when prayer times were computed from a real device location.
+    var hasRealLocationData: Bool { lastComputedLat != nil && lastComputedLon != nil }
 
     static let offsetsKey = "nafs_prayerOffsetsMinutes"
 

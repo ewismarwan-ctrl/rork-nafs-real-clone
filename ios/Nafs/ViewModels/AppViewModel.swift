@@ -174,17 +174,22 @@ class AppViewModel {
             cityName: prayerService.locationName
         )
         PrayerActivityScheduler.shared.updateSchedule(prayerTimes: prayerTimes)
-        SharedDataService.syncPrayerTimes(
-            prayerTimes.map { (name: $0.name.rawValue, time: $0.time) },
-            locationName: prayerService.locationName
-        )
-        // Pre-compute next 7 days so widgets stay accurate even when the app isn't opened.
-        let multiDay = await prayerService.computeUpcomingDays(
-            method: calculationMethod,
-            madhab: asrMadhab,
-            days: 7
-        )
-        SharedDataService.syncMultiDayPrayerTimes(multiDay)
+        // Only push real, location-based prayer times to widgets.
+        // Otherwise the widget would display stale/fallback hours that
+        // don't match the user's device or location.
+        if prayerService.hasRealLocationData {
+            SharedDataService.syncPrayerTimes(
+                prayerTimes.map { (name: $0.name.rawValue, time: $0.time) },
+                locationName: prayerService.locationName
+            )
+            // Pre-compute next 7 days so widgets stay accurate even when the app isn't opened.
+            let multiDay = await prayerService.computeUpcomingDays(
+                method: calculationMethod,
+                madhab: asrMadhab,
+                days: 7
+            )
+            SharedDataService.syncMultiDayPrayerTimes(multiDay)
+        }
     }
 
     func requirePremium(feature: String, benefit: String) -> Bool {
