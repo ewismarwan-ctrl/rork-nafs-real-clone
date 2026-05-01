@@ -13,6 +13,7 @@ struct FocusView: View {
     @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State private var showResetConfirm: Bool = false
     @State private var showPremiumGate: Bool = false
+    @State private var showPrayConfirm: Bool = false
     @State private var prayerLockEnabled: Bool = true
 
     @Environment(LanguageManager.self) private var lang
@@ -304,12 +305,11 @@ struct FocusView: View {
 
             if let activePrayer {
                 Button {
-                    screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
-                    unlockSuccess.toggle()
+                    showPrayConfirm = true
                 } label: {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                        Text(L10n.text("Mark \(NafsStrings.prayerName(activePrayer)) Complete", "تأكيد إتمام \(NafsStrings.prayerName(activePrayer))"))
+                        Text(L10n.text("I’ve Prayed", "لقد صليت"))
                     }
                     .font(.system(.subheadline, weight: .semibold))
                     .foregroundStyle(.white)
@@ -317,6 +317,19 @@ struct FocusView: View {
                     .frame(height: 50)
                     .background(NafsTheme.goldGradient)
                     .clipShape(.rect(cornerRadius: 14))
+                }
+                .confirmationDialog(
+                    L10n.text("Confirm Prayer", "تأكيد الصلاة"),
+                    isPresented: $showPrayConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button(L10n.text("Yes, I’ve prayed", "نعم، لقد صليت")) {
+                        screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
+                        unlockSuccess.toggle()
+                    }
+                    Button(L10n.text("Not yet", "ليس بعد"), role: .cancel) {}
+                } message: {
+                    Text(L10n.text("Did you complete your \(NafsStrings.prayerName(activePrayer)) prayer?", "هل أتممت صلاة \(NafsStrings.prayerName(activePrayer))؟"))
                 }
             }
         }
