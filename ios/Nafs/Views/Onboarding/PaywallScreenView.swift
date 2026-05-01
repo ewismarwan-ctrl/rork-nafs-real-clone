@@ -404,28 +404,65 @@ struct PaywallPricingSubscreen: View {
     @State private var purchaseError: String?
     @State private var isRestoring: Bool = false
 
+    private var benefits: [(String, String)] {
+        [
+            ("lock.shield.fill", L10n.text("Lock distracting apps during prayer times", "اقفل التطبيقات المشتتة أثناء أوقات الصلاة")),
+            ("checkmark.seal.fill", L10n.text("Stay consistent with your Salah", "حافظ على صلاتك بانتظام")),
+            ("book.fill", L10n.text("Build a daily Quran habit", "ابنِ عادة يومية مع القرآن")),
+            ("sparkles", L10n.text("Stay focused without distractions", "ركّز بلا تشتيت"))
+        ]
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            Spacer().frame(height: 16)
+            Spacer().frame(height: 12)
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 18) {
-                    VStack(spacing: 6) {
-                        Text(NafsStrings.nafsPremium.localized)
-                            .font(.system(.title2, weight: .bold))
+                    VStack(spacing: 8) {
+                        Text(L10n.text("Take control of your Deen.", "تحكّم في دينك."))
+                            .font(.system(.title, weight: .bold))
                             .foregroundStyle(NafsTheme.text)
-                        Text(L10n.text("Full access to your companion.", "وصول كامل إلى رفيقك."))
-                            .font(.system(.subheadline))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(L10n.text("Block distractions. Pray on time.", "احجب المشتتات. صلِّ في وقتها."))
+                            .font(.system(.subheadline, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
+                            .multilineTextAlignment(.center)
                     }
                     .padding(.top, 4)
 
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(benefits, id: \.1) { icon, text in
+                            HStack(spacing: 12) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(NafsTheme.gold)
+                                    .frame(width: 22)
+                                Text(text)
+                                    .font(.system(.subheadline, weight: .medium))
+                                    .foregroundStyle(NafsTheme.text)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(NafsTheme.gold.opacity(0.06))
+                    .clipShape(.rect(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
+                    )
+
                     VStack(spacing: 10) {
-                        ForEach(SubscriptionPlan.allCases) { plan in
+                        ForEach(SubscriptionPlan.allCases.reversed()) { plan in
                             PlanCard(
                                 plan: plan,
                                 isSelected: selectedPlan == plan,
                                 displayPrice: dynamicPrice(for: plan),
+                                dailyEquivalent: plan == .yearly ? dailyPrice(for: .yearly) : nil,
                                 onSelect: {
                                     withAnimation(.spring(response: 0.3)) {
                                         selectedPlan = plan
@@ -440,7 +477,7 @@ struct PaywallPricingSubscreen: View {
             }
             .opacity(appeared ? 1 : 0)
 
-            Spacer().frame(height: 12)
+            Spacer().frame(height: 8)
 
             VStack(spacing: 10) {
                 if storeViewModel.isLoading && !storeViewModel.hasPackages {
@@ -486,7 +523,7 @@ struct PaywallPricingSubscreen: View {
                         "تجربة مجانية ٧ أيام، ثم \(dynamicPrice(for: .yearly))/سنة. يتجدد تلقائياً ما لم يتم الإلغاء قبل ٢٤ ساعة من نهاية التجربة."
                      )
                      : NafsStrings.subscriptionTerms.localized)
-                    .font(.system(.caption2))
+                    .font(.system(.caption2, weight: .medium))
                     .foregroundStyle(NafsTheme.subtleText)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -583,12 +620,46 @@ struct PaywallPricingSubscreen: View {
         case .yearly: return storeViewModel.yearlyPackage?.storeProduct.localizedPriceString ?? plan.price
         }
     }
+
+    private func dailyPrice(for plan: SubscriptionPlan) -> String {
+        let pkg: RevenueCat.Package? = {
+            switch plan {
+            case .weekly: return storeViewModel.weeklyPackage
+            case .monthly: return storeViewModel.monthlyPackage
+            case .yearly: return storeViewModel.yearlyPackage
+            }
+        }()
+        let priceDecimal: Decimal
+        let formatter: NumberFormatter
+        if let product = pkg?.storeProduct {
+            priceDecimal = product.price
+            formatter = NumberFormatter()
+            formatter.numberStyle = .currency
+            formatter.currencyCode = product.currencyCode ?? "USD"
+            formatter.maximumFractionDigits = 2
+            formatter.minimumFractionDigits = 2
+        } else {
+            priceDecimal = 39.99
+            formatter = NumberFormatter()
+            formatter.numberStyle = .currency
+            formatter.currencyCode = "USD"
+            formatter.maximumFractionDigits = 2
+            formatter.minimumFractionDigits = 2
+        }
+        let divisor: Decimal = plan == .yearly ? 365 : (plan == .monthly ? 30 : 7)
+        let perDay = priceDecimal / divisor
+        let rounded = NSDecimalNumber(decimal: perDay).doubleValue
+        let bumped = (ceil(rounded * 100) / 100)
+        let display = formatter.string(from: NSNumber(value: bumped)) ?? "$0.11"
+        return L10n.text("Less than \(display)/day", "أقل من \(display)/يوم")
+    }
 }
 
 private struct PlanCard: View {
     let plan: SubscriptionPlan
     let isSelected: Bool
     var displayPrice: String = ""
+    var dailyEquivalent: String? = nil
     let onSelect: () -> Void
 
     var body: some View {
@@ -605,24 +676,24 @@ private struct PlanCard: View {
                         }
                     }
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(plan.title)
                             .font(.system(.body, weight: .semibold))
                             .foregroundStyle(NafsTheme.text)
-                        if let badge = plan.badge {
-                            Text(badge)
+                        if plan == .yearly {
+                            Text(L10n.text("Best Value", "أفضل قيمة"))
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
-                                .background(plan == .yearly ? NafsTheme.goldGradient : LinearGradient(colors: [NafsTheme.subtleText], startPoint: .leading, endPoint: .trailing))
+                                .background(NafsTheme.goldGradient)
                                 .clipShape(.capsule)
                         }
                     }
-                    if let subtitle = plan.subtitle {
-                        Text(subtitle)
-                            .font(.system(.caption))
+                    if let daily = dailyEquivalent {
+                        Text(daily)
+                            .font(.system(.caption, weight: .semibold))
                             .foregroundStyle(NafsTheme.gold)
                     }
                     if plan.hasTrial {
@@ -644,7 +715,7 @@ private struct PlanCard: View {
                 }
             }
             .padding(16)
-            .background(isSelected ? NafsTheme.gold.opacity(0.06) : NafsTheme.card)
+            .background(isSelected ? NafsTheme.gold.opacity(0.08) : NafsTheme.card)
             .clipShape(.rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
