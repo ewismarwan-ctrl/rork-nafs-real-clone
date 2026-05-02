@@ -9,9 +9,4 @@ nonisolated enum NafsConstants {
     static let termsOfUseURL: String = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
     static let appGroupID: String = "group.app.rork.4lq2ucv31aityltnkks3n.nafs"
     static let deepLinkScheme: String = "nafs"
-
-    static func circleInviteURL(circleID: String, circleName: String) -> String {
-        let encodedName = circleName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return "\(appStoreURL)?circle=\(circleID)&name=\(encodedName)"
-    }
 }

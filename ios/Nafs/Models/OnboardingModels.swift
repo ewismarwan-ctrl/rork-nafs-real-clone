@@ -108,7 +108,6 @@ nonisolated struct OnboardingOptions {
             SelectionOption("quran_reader", title: NafsStrings.featureQuranReader.localized, icon: "book.fill"),
             SelectionOption("nafs_ai", title: NafsStrings.featureAI.localized, icon: "sparkles"),
             SelectionOption("garden", title: NafsStrings.featureGarden.localized, icon: "tree.fill"),
-            SelectionOption("circles", title: NafsStrings.featureCircles.localized, icon: "person.3.fill"),
             SelectionOption("guided_plans", title: NafsStrings.featurePlans.localized, icon: "map"),
             SelectionOption("muhasabah", title: NafsStrings.featureMuhasabah.localized, icon: "pencil.and.list.clipboard"),
             SelectionOption("prayer_qibla", title: NafsStrings.featurePrayerQibla.localized, icon: "location.north.fill"),

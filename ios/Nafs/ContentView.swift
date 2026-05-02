@@ -15,16 +15,8 @@ struct ContentView: View {
     }
 
     private func handleIncomingURL(_ url: URL) {
-        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let items = comps.queryItems,
-              let id = items.first(where: { $0.name == "circle" })?.value,
-              !id.isEmpty else { return }
-        let name = items.first(where: { $0.name == "name" })?.value?
-            .removingPercentEncoding ?? "Invited Circle"
-        let circle = UserCircle(id: id, name: name)
-        _ = CirclesStore.addOrUpdate(circle)
-        CirclesStore.setActiveID(circle.id)
-        navigationState.selectedTab = .more
+        // Reserved for future deep link handling.
+        _ = url
     }
 
     var body: some View {
@@ -175,7 +167,6 @@ struct MoreView: View {
 
                 Section(NafsStrings.growth.localized) {
                     moreRow(icon: "leaf.fill", title: NafsStrings.gardenOfDeeds.localized, subtitle: lang.isArabic ? "شاهد حديقتك تنمو" : "Watch your garden grow", dest: .garden, premium: true)
-                    moreRow(icon: "person.3.fill", title: NafsStrings.circles.localized, subtitle: lang.isArabic ? "محاسبة خاصة" : "Private accountability", dest: .circles, premium: true)
                     moreRow(icon: "chart.bar.fill", title: NafsStrings.progress.localized, subtitle: lang.isArabic ? "الإحصائيات والسلاسل" : "Stats & streaks", dest: .progress, premium: true)
                 }
 
@@ -206,8 +197,6 @@ struct MoreView: View {
                     QiblaFinderView(storeViewModel: storeViewModel, isPremium: true)
                 case .garden:
                     GardenOfDeedsView(viewModel: viewModel, storeViewModel: storeViewModel)
-                case .circles:
-                    CirclesView(viewModel: viewModel, storeViewModel: storeViewModel)
                 case .progress:
                     ProgressStatsView(viewModel: viewModel, storeViewModel: storeViewModel)
                 case .settings:
@@ -293,5 +282,5 @@ struct MoreView: View {
 }
 
 enum MoreDestination: Hashable {
-    case wallet, habits, dhikr, muhasabah, guidedPlans, sendDua, qibla, garden, circles, progress, settings
+    case wallet, habits, dhikr, muhasabah, guidedPlans, sendDua, qibla, garden, progress, settings
 }

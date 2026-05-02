@@ -122,9 +122,6 @@ class OnboardingViewModel {
         if selectedDeenAreas.contains("screentime") || selectedDeenAreas.contains("all") {
             insights.append(L10n.text("Your app blocker is configured and ready. Earn your screen time through ibadah.", "حاجب التطبيقات جاهز. اكسب وقت شاشتك من خلال العبادة."))
         }
-        if selectedDeenAreas.contains("accountability") || selectedDeenAreas.contains("all") {
-            insights.append(L10n.text("Your Circles feature is ready. Invite family and friends to keep each other accountable.", "ميزة الحلقات جاهزة. ادعُ العائلة والأصدقاء للمحاسبة المتبادلة."))
-        }
         if selectedDeenAreas.contains("salah") || selectedDeenAreas.contains("all") {
             let salahText = L10n.text("Your Salah tracker is ready to help you build an unbreakable prayer habit.", "متتبع صلاتك جاهز لمساعدتك في بناء عادة صلاة لا تنقطع.")
             if !insights.contains(where: { $0 == salahText }) {
