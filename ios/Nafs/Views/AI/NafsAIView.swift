@@ -13,16 +13,16 @@ struct NafsAIView: View {
 
     private var suggestions: [String] {
         lang.isArabic ? [
-            "كيف أتوقف عن تأخير الصلاة؟",
-            "نفسي تغلبني على المعاصي",
+            "كيف أحافظ على صلاة الفجر؟",
+            "كيف أتوقف عن إضاعة الوقت؟",
+            "كيف أبني الانضباط؟",
             "كيف أترك عادة سيئة؟",
-            "أريد التقرب من الله أكثر",
             "كيف أبدأ قيام الليل؟",
         ] : [
-            "How do I stop delaying salah?",
-            "My nafs keeps pulling me to sin",
+            "How do I stay consistent with Fajr?",
+            "How do I stop wasting time?",
+            "How do I build discipline?",
             "How do I break a bad habit?",
-            "I want to get closer to Allah",
             "How do I start praying tahajjud?",
         ]
     }
@@ -211,8 +211,11 @@ struct NafsAIView: View {
                             StreamingBubble(text: service.streamingText)
                                 .id("streaming")
                         } else {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 10) {
                                 TypingDots()
+                                Text(lang.isArabic ? "يفكر…" : "Thinking…")
+                                    .font(.system(.footnote, weight: .medium))
+                                    .foregroundStyle(NafsTheme.subtleText)
                                 Spacer()
                             }
                             .padding(.horizontal, 20)
@@ -381,6 +384,41 @@ private struct ChatHistorySheet: View {
     }
 }
 
+private struct ParsedResponse {
+    let title: String?
+    let bullets: [String]
+    let body: String?
+}
+
+private func parseAIResponse(_ text: String) -> ParsedResponse {
+    let lines = text.split(whereSeparator: { $0.isNewline }).map { String($0).trimmingCharacters(in: .whitespaces) }
+    var nonEmpty = lines.filter { !$0.isEmpty }
+    var title: String? = nil
+    if let first = nonEmpty.first,
+       !first.hasPrefix("-"),
+       !first.hasPrefix("•"),
+       first.count <= 60,
+       nonEmpty.count > 1 {
+        title = first
+        nonEmpty.removeFirst()
+    }
+    var bullets: [String] = []
+    var bodyLines: [String] = []
+    for line in nonEmpty {
+        if line.hasPrefix("- ") {
+            bullets.append(String(line.dropFirst(2)))
+        } else if line.hasPrefix("-") {
+            bullets.append(String(line.dropFirst(1)).trimmingCharacters(in: .whitespaces))
+        } else if line.hasPrefix("• ") {
+            bullets.append(String(line.dropFirst(2)))
+        } else {
+            bodyLines.append(line)
+        }
+    }
+    let body = bodyLines.isEmpty ? nil : bodyLines.joined(separator: "\n\n")
+    return ParsedResponse(title: title, bullets: bullets, body: body)
+}
+
 private struct MessageBubble: View {
     let message: ChatMessage
 
@@ -389,23 +427,134 @@ private struct MessageBubble: View {
     var body: some View {
         HStack {
             if isUser { Spacer(minLength: 60) }
-            VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
-                Text(message.content)
-                    .font(.system(.body))
-                    .foregroundStyle(isUser ? .white : NafsTheme.text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(isUser ? AnyShapeStyle(NafsTheme.goldGradient) : AnyShapeStyle(NafsTheme.card))
-                    .clipShape(.rect(cornerRadius: 18, style: .continuous))
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 8) {
+                if isUser {
+                    Text(message.content)
+                        .font(.system(.body))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(NafsTheme.goldGradient)
+                        .clipShape(.rect(cornerRadius: 20, style: .continuous))
+                } else {
+                    AIResponseBubble(content: message.content)
+                }
 
                 Text(message.timestamp, format: .dateTime.hour().minute())
                     .font(.system(.caption2))
                     .foregroundStyle(NafsTheme.subtleText.opacity(0.6))
                     .padding(.horizontal, 4)
             }
-            if !isUser { Spacer(minLength: 60) }
+            if !isUser { Spacer(minLength: 40) }
         }
         .padding(.horizontal, 16)
+    }
+}
+
+private struct AIResponseBubble: View {
+    let content: String
+    @Environment(LanguageManager.self) private var lang
+
+    var body: some View {
+        let parsed = parseAIResponse(content)
+        VStack(alignment: .leading, spacing: 12) {
+            if let title = parsed.title {
+                Text(title)
+                    .font(.system(.headline, weight: .bold))
+                    .foregroundStyle(NafsTheme.text)
+            }
+            if let body = parsed.body {
+                Text(body)
+                    .font(.system(.body))
+                    .foregroundStyle(NafsTheme.text)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !parsed.bullets.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(parsed.bullets, id: \.self) { bullet in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Circle()
+                                .fill(NafsTheme.gold)
+                                .frame(width: 5, height: 5)
+                                .offset(y: -2)
+                            Text(bullet)
+                                .font(.system(.body))
+                                .foregroundStyle(NafsTheme.text)
+                                .lineSpacing(4)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            if parsed.title == nil, parsed.bullets.isEmpty, parsed.body == nil {
+                Text(content)
+                    .font(.system(.body))
+                    .foregroundStyle(NafsTheme.text)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+                .background(NafsTheme.cardBorder)
+                .padding(.top, 2)
+
+            ActionChips()
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(NafsTheme.card.opacity(0.85))
+        .clipShape(.rect(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(NafsTheme.cardBorder.opacity(0.6), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 4)
+    }
+}
+
+private struct ActionChips: View {
+    @Environment(LanguageManager.self) private var lang
+
+    private var items: [(String, String)] {
+        lang.isArabic ? [
+            ("checkmark.circle", "اجعلها عادة"),
+            ("bell", "تذكير"),
+            ("target", "ركز على هذا"),
+        ] : [
+            ("checkmark.circle", "Make this a habit"),
+            ("bell", "Set reminder"),
+            ("target", "Focus on this"),
+        ]
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(items, id: \.1) { item in
+                    Button {
+                        // Placeholder: hooks into habits/reminders/focus later.
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: item.0)
+                                .font(.system(.caption, weight: .semibold))
+                            Text(item.1)
+                                .font(.system(.caption, weight: .medium))
+                        }
+                        .foregroundStyle(NafsTheme.gold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(NafsTheme.gold.opacity(0.12))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().strokeBorder(NafsTheme.gold.opacity(0.35), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 }
 
@@ -414,16 +563,8 @@ private struct StreamingBubble: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(text)
-                    .font(.system(.body))
-                    .foregroundStyle(NafsTheme.text)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(NafsTheme.card)
-                    .clipShape(.rect(cornerRadius: 18, style: .continuous))
-            }
-            Spacer(minLength: 60)
+            AIResponseBubble(content: text)
+            Spacer(minLength: 40)
         }
         .padding(.horizontal, 16)
     }
