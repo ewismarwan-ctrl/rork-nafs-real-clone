@@ -15,10 +15,13 @@ struct FocusView: View {
     @State private var showPremiumGate: Bool = false
     @State private var showPrayConfirm: Bool = false
     @State private var prayerLockEnabled: Bool = true
+    @State private var showRatingPrompt: Bool = false
 
     @Environment(LanguageManager.self) private var lang
 
     private let prayerLockKey: String = "nafs_prayerLockEnabled_v1"
+    private let firstPrayerCompletedKey: String = "nafs_hasCompletedFirstPrayer"
+    private let ratingPromptShownKey: String = "nafs_ratingPromptShown"
 
     var body: some View {
         NavigationStack {
@@ -76,6 +79,11 @@ struct FocusView: View {
             } message: {
                 Text(L10n.text("This removes all blocked apps and disables prayer lock.", "سيؤدي هذا إلى إزالة جميع التطبيقات المحجوبة وتعطيل قفل الصلاة."))
             }
+            .sheet(isPresented: $showRatingPrompt) {
+                PrayerRatingPromptSheet(onDismiss: { showRatingPrompt = false })
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
             .sheet(isPresented: $showPremiumGate) {
                 UpgradePaywallSheet(
                     storeViewModel: storeViewModel,
@@ -104,6 +112,22 @@ struct FocusView: View {
             } else {
                 screenTimeService.activePrayerLock = nil
                 screenTimeService.removeShields()
+            }
+        }
+    }
+
+    // MARK: - Rating prompt
+    private func triggerRatingPromptIfNeeded() {
+        let defaults = UserDefaults.standard
+        let firstPrayerDone = defaults.bool(forKey: firstPrayerCompletedKey)
+        if !firstPrayerDone {
+            defaults.set(true, forKey: firstPrayerCompletedKey)
+            let alreadyShown = defaults.bool(forKey: ratingPromptShownKey)
+            if !alreadyShown && !RatingService.shared.hasRated {
+                defaults.set(true, forKey: ratingPromptShownKey)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    showRatingPrompt = true
+                }
             }
         }
     }
@@ -326,6 +350,7 @@ struct FocusView: View {
                     Button(L10n.text("Yes, I’ve prayed", "نعم، لقد صليت")) {
                         screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
                         unlockSuccess.toggle()
+                        triggerRatingPromptIfNeeded()
                     }
                     Button(L10n.text("Not yet", "ليس بعد"), role: .cancel) {}
                 } message: {
