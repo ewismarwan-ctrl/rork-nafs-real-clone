@@ -32,18 +32,24 @@ struct OnboardingContainerView: View {
                     switch vm.currentScreen {
                     case .splash: SplashScreenView(vm: vm)
                     case .languageSelection: LanguageSelectionView(languageManager: languageManager) { vm.goNext() }
-                    case .identity: PLIdentityScreen(vm: vm)
-                    case .behavior: PLBehaviorScreen(vm: vm)
-                    case .pain: PLPainScreen(vm: vm)
-                    case .shiftBlame: PLShiftBlameScreen(vm: vm)
-                    case .solution: PLSolutionScreen(vm: vm)
-                    case .coreFeature: PLCoreFeatureScreen(vm: vm)
-                    case .distractions: PLDistractionsScreen(vm: vm)
-                    case .automation: PLAutomationScreen(vm: vm)
-                    case .demo: PLDemoScreen(vm: vm)
-                    case .reward: PLRewardScreen(vm: vm)
-                    case .identityShift: PLIdentityShiftScreen(vm: vm)
-                    case .system: PLSystemScreen(vm: vm)
+                    case .hook: HookScreenView(vm: vm)
+                    case .insight1: InsightScreen1View(vm: vm)
+                    case .deenAreas: DeenAreasScreenView(vm: vm)
+                    case .salahRelationship: SalahRelationshipScreenView(vm: vm)
+                    case .insight2: InsightScreen2View(vm: vm)
+                    case .quranRelationship: QuranRelationshipScreenView(vm: vm)
+                    case .knowledgeAreas: KnowledgeAreasScreenView(vm: vm)
+                    case .insight3: InsightScreen3View(vm: vm)
+                    case .phoneEffect: PhoneEffectScreenView(vm: vm)
+                    case .spiritualChallenge: SpiritualChallengeScreenView(vm: vm)
+                    case .excitingFeatures: ExcitingFeaturesScreenView(vm: vm)
+                    case .strictness: StrictnessScreenView(vm: vm)
+                    case .name: NameScreenView(vm: vm)
+                    case .location: LocationScreenView(vm: vm)
+                    case .personalized: PersonalizedScreenView(vm: vm)
+                    case .loading: LoadingScreenView(vm: vm)
+                    case .score: ScoreScreenView(vm: vm)
+                    case .ratingPrompt: RatingPromptScreenView(vm: vm)
                     case .paywall: PaywallScreenView(vm: vm, storeViewModel: storeViewModel)
                     }
                 }
@@ -59,6 +65,7 @@ struct OnboardingContainerView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: hapticTrigger)
         .onChange(of: vm.hasCompletedOnboarding) { _, newValue in
             if newValue {
+                UserDefaults.standard.set(vm.userName, forKey: "nafs_userName")
                 hasCompletedOnboarding = true
             }
         }
