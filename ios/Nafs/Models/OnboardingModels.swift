@@ -14,6 +14,7 @@ nonisolated enum OnboardingScreen: Int, CaseIterable {
     case demo
     case reward
     case identityShift
+    case system
     case paywall
 }
 

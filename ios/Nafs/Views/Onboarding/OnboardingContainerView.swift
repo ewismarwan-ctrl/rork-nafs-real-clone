@@ -43,6 +43,7 @@ struct OnboardingContainerView: View {
                     case .demo: PLDemoScreen(vm: vm)
                     case .reward: PLRewardScreen(vm: vm)
                     case .identityShift: PLIdentityShiftScreen(vm: vm)
+                    case .system: PLSystemScreen(vm: vm)
                     case .paywall: PaywallScreenView(vm: vm, storeViewModel: storeViewModel)
                     }
                 }

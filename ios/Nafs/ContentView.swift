@@ -152,10 +152,6 @@ struct MoreView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section(NafsStrings.myJourney.localized) {
-                    moreRow(icon: "sparkle", title: NafsStrings.hasanatWallet.localized, subtitle: lang.isArabic ? "رصيد الحسنات وسجلك" : "Your Hasanat balance and history", dest: .wallet, premium: false)
-                }
-
                 Section(NafsStrings.features.localized) {
                     moreRow(icon: "checkmark.seal.fill", title: NafsStrings.logHabits.localized, subtitle: lang.isArabic ? "سجّل عباداتك اليومية" : "Log your daily worship habits", dest: .habits, premium: true)
                     moreRow(icon: "hands.sparkles.fill", title: NafsStrings.dhikr.localized, subtitle: lang.isArabic ? "عدّاد التسبيح للذكر اليومي" : "Tasbih counter for daily dhikr", dest: .dhikr, premium: false)
@@ -181,8 +177,6 @@ struct MoreView: View {
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: MoreDestination.self) { dest in
                 switch dest {
-                case .wallet:
-                    HasanatWalletView(viewModel: viewModel)
                 case .dhikr:
                     DhikrView(viewModel: viewModel, storeViewModel: storeViewModel)
                 case .muhasabah:
@@ -282,5 +276,5 @@ struct MoreView: View {
 }
 
 enum MoreDestination: Hashable {
-    case wallet, habits, dhikr, muhasabah, guidedPlans, sendDua, qibla, garden, progress, settings
+    case habits, dhikr, muhasabah, guidedPlans, sendDua, qibla, garden, progress, settings
 }
