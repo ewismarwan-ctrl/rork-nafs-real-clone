@@ -170,6 +170,7 @@ class AppViewModel {
             )
             SharedDataService.syncMultiDayPrayerTimes(multiDay)
         }
+        SharedDataService.syncPrayerStreak()
     }
 
     func requirePremium(feature: String, benefit: String) -> Bool {

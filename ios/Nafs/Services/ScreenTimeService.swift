@@ -233,6 +233,7 @@ class ScreenTimeService {
 
     private func markPrayerCompleted(_ prayer: PrayerName, on date: Date) {
         PrayerCompletionStore.markCompleted(prayer, on: date)
+        SharedDataService.syncPrayerStreak()
     }
 
     /// Manually mark an arbitrary prayer complete (e.g. from Home tap-to-mark).

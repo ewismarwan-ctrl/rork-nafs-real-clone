@@ -107,6 +107,7 @@ struct HomeDashboardView: View {
 
     private func completePrayer(_ prayer: PrayerName) {
         PrayerCompletionStore.markCompleted(prayer, on: .now)
+        SharedDataService.syncPrayerStreak()
         let count = PrayerCompletionStore.completedCount(on: .now)
         let streak = PrayerCompletionStore.currentStreakDays()
         lastCompletedPrayer = prayer

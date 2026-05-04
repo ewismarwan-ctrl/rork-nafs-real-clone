@@ -20,6 +20,23 @@ enum SharedDataService {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Push the latest streak + today's completion count to the App Group so widgets can display them.
+    static func syncPrayerStreak() {
+        guard let shared = shared else { return }
+        let streak = PrayerCompletionStore.currentStreakDays()
+        let completed = PrayerCompletionStore.completedCount(on: .now)
+        let total = PrayerName.allCases.count
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = TimeZone.current
+        f.dateFormat = "yyyy-MM-dd"
+        shared.set(streak, forKey: "nafs_widget_streakDays")
+        shared.set(completed, forKey: "nafs_widget_completedToday")
+        shared.set(total, forKey: "nafs_widget_totalToday")
+        shared.set(f.string(from: .now), forKey: "nafs_widget_completedDateKey")
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     static func syncPrayerTimes(_ times: [(name: String, time: Date)], locationName: String) {
         guard let shared = shared else { return }
         let payload = times.map { SharedPrayerTime(name: $0.name, time: $0.time) }

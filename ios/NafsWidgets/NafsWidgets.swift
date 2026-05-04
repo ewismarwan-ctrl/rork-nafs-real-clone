@@ -737,6 +737,288 @@ nonisolated struct HijriDateWidget: Widget {
     }
 }
 
+// MARK: - Prayer Streak Widget
+
+nonisolated struct PrayerStreakSnapshot: Sendable {
+    let streak: Int
+    let completed: Int
+    let total: Int
+    let next: SharedPrayerTime?
+}
+
+nonisolated enum PrayerStreakLoader {
+    static func load(for date: Date = .now) -> PrayerStreakSnapshot {
+        let shared = WidgetTheme.shared
+        let streak = shared?.integer(forKey: "nafs_widget_streakDays") ?? 0
+        var completed = shared?.integer(forKey: "nafs_widget_completedToday") ?? 0
+        let storedTotal = shared?.integer(forKey: "nafs_widget_totalToday") ?? 0
+        let total = storedTotal > 0 ? storedTotal : 5
+
+        // If the stored completion date isn't today, treat today's count as 0.
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = TimeZone.current
+        f.dateFormat = "yyyy-MM-dd"
+        let todayKey = f.string(from: date)
+        if let storedKey = shared?.string(forKey: "nafs_widget_completedDateKey"), storedKey != todayKey {
+            completed = 0
+        } else if shared?.string(forKey: "nafs_widget_completedDateKey") == nil {
+            completed = 0
+        }
+
+        let times = WidgetPrayerLoader.load(for: date).times
+        let next = WidgetPrayerLoader.nextPrayer(from: times, now: date)
+        return PrayerStreakSnapshot(streak: streak, completed: completed, total: total, next: next)
+    }
+}
+
+nonisolated struct PrayerStreakEntry: TimelineEntry {
+    let date: Date
+    let snapshot: PrayerStreakSnapshot
+}
+
+nonisolated struct PrayerStreakProvider: TimelineProvider {
+    func placeholder(in context: Context) -> PrayerStreakEntry {
+        PrayerStreakEntry(date: .now, snapshot: PrayerStreakLoader.load())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (PrayerStreakEntry) -> Void) {
+        completion(placeholder(in: context))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<PrayerStreakEntry>) -> Void) {
+        let now = Date.now
+        let entry = PrayerStreakEntry(date: now, snapshot: PrayerStreakLoader.load(for: now))
+        let cal = Calendar(identifier: .gregorian)
+        let nextMidnight = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) ?? now.addingTimeInterval(3600)
+        let nextPrayer = entry.snapshot.next?.time
+        let refresh = [nextPrayer, nextMidnight].compactMap { $0 }.min() ?? nextMidnight
+        completion(Timeline(entries: [entry], policy: .after(refresh)))
+    }
+}
+
+struct PrayerStreakWidgetView: View {
+    let entry: PrayerStreakEntry
+    @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var colorScheme
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        return f
+    }()
+
+    private var streakLabel: String {
+        entry.snapshot.streak == 1 ? "Day Streak" : "Day Streak"
+    }
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            inlineView
+        case .accessoryCircular:
+            circularView
+        case .accessoryRectangular:
+            rectangularView
+        case .systemMedium, .systemLarge:
+            mediumView
+        default:
+            smallView
+        }
+    }
+
+    @ViewBuilder private var inlineView: some View {
+        Text("\(entry.snapshot.streak)d streak · \(entry.snapshot.completed)/\(entry.snapshot.total)")
+    }
+
+    @ViewBuilder private var circularView: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            VStack(spacing: -2) {
+                Text("\(entry.snapshot.streak)")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                Text("DAY")
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(0.6)
+                    .opacity(0.85)
+            }
+            .padding(2)
+        }
+    }
+
+    @ViewBuilder private var rectangularView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("PRAYER STREAK")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.5)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(entry.snapshot.streak)")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                Text(entry.snapshot.streak == 1 ? "day" : "days")
+                    .font(.system(size: 11, weight: .semibold))
+                    .opacity(0.85)
+            }
+            Text("\(entry.snapshot.completed)/\(entry.snapshot.total) prayers today")
+                .font(.system(size: 10, weight: .medium))
+                .opacity(0.85)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    // MARK: Home
+
+    private var bg: Color {
+        colorScheme == .dark ? WidgetTheme.ink : WidgetTheme.cream
+    }
+    private var primary: Color {
+        colorScheme == .dark ? .white : WidgetTheme.darkText
+    }
+    private var secondary: Color {
+        primary.opacity(0.6)
+    }
+
+    @ViewBuilder private var smallView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text("STREAK")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.6)
+            }
+            .foregroundStyle(WidgetTheme.gold)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(entry.snapshot.streak)")
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.gold)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                Text(entry.snapshot.streak == 1 ? "day" : "days")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            Text("\(entry.snapshot.completed)/\(entry.snapshot.total) today")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(primary)
+
+            progressDots
+        }
+        .padding(2)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder private var mediumView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text("PRAYER STREAK")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.6)
+            }
+            .foregroundStyle(WidgetTheme.gold)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(entry.snapshot.streak)")
+                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.gold)
+                    .monospacedDigit()
+                Text(entry.snapshot.streak == 1 ? "Day Streak" : "Day Streak")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(primary)
+            }
+
+            Text("\(entry.snapshot.completed)/\(entry.snapshot.total) prayers today")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(primary)
+
+            progressDots
+
+            Spacer(minLength: 0)
+
+            if let next = entry.snapshot.next {
+                HStack(spacing: 4) {
+                    Image(systemName: "sun.and.horizon.fill")
+                        .font(.system(size: 10))
+                    Text("Next: \(next.name) · \(Self.timeFormatter.string(from: next.time))")
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(secondary)
+            }
+        }
+        .padding(2)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var progressDots: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<entry.snapshot.total, id: \.self) { i in
+                Circle()
+                    .fill(i < entry.snapshot.completed ? WidgetTheme.gold : primary.opacity(0.18))
+                    .frame(width: 7, height: 7)
+            }
+        }
+    }
+}
+
+nonisolated struct PrayerStreakWidget: Widget {
+    let kind: String = "NafsPrayerStreak"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: PrayerStreakProvider()) { entry in
+            PrayerStreakWidgetView(entry: entry)
+                .containerBackground(for: .widget) {
+                    PrayerStreakBackground()
+                }
+        }
+        .configurationDisplayName("Prayer Streak")
+        .description("Your prayer streak and today's progress at a glance.")
+        .supportedFamilies([
+            .systemSmall,
+            .systemMedium,
+            .accessoryCircular,
+            .accessoryRectangular,
+            .accessoryInline,
+        ])
+    }
+}
+
+struct PrayerStreakBackground: View {
+    @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        switch family {
+        case .accessoryCircular, .accessoryRectangular, .accessoryInline:
+            Color.clear
+        default:
+            ZStack {
+                colorScheme == .dark ? WidgetTheme.ink : WidgetTheme.cream
+                GeometryReader { geo in
+                    Circle()
+                        .fill(WidgetTheme.gold.opacity(colorScheme == .dark ? 0.10 : 0.12))
+                        .frame(width: geo.size.width * 0.9)
+                        .offset(x: geo.size.width * 0.45, y: -geo.size.height * 0.3)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Daily Reflection Widget
 
 nonisolated struct ReflectionEntry: TimelineEntry {

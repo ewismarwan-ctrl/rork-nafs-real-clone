@@ -8,6 +8,7 @@ struct NafsWidgetsBundle: WidgetBundle {
         PrayerTimesWidget()
         NextPrayerWidget()
         DailyPrayersWidget()
+        PrayerStreakWidget()
         HijriDateWidget()
         DailyReflectionWidget()
     }
