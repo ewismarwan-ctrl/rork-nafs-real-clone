@@ -319,10 +319,10 @@ private struct AppSelectionRow: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
-            .background(.white)
+            .background(NafsTheme.card)
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(isOn ? NafsTheme.gold.opacity(0.5) : Color.black.opacity(0.06), lineWidth: 1)
+                    .strokeBorder(isOn ? NafsTheme.gold.opacity(0.5) : NafsTheme.cardBorder, lineWidth: 1)
             )
             .clipShape(.rect(cornerRadius: 14))
         }

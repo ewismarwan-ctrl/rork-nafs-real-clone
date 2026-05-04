@@ -357,7 +357,7 @@ private struct PlanCard: View {
                 }
             }
             .padding(16)
-            .background(isSelected ? NafsTheme.gold.opacity(0.08) : Color.white)
+            .background(isSelected ? NafsTheme.gold.opacity(0.08) : NafsTheme.card)
             .clipShape(.rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -389,7 +389,7 @@ private struct CompactPlanCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(isSelected ? NafsTheme.gold.opacity(0.08) : Color.white)
+            .background(isSelected ? NafsTheme.gold.opacity(0.08) : NafsTheme.card)
             .clipShape(.rect(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)

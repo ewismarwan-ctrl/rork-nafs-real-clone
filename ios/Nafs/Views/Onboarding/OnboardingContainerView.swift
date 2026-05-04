@@ -54,7 +54,6 @@ struct OnboardingContainerView: View {
                 .gesture(vm.requiresAnswer ? DragGesture() : nil)
             }
         }
-        .preferredColorScheme(.light)
         .sensoryFeedback(.impact(weight: .light), trigger: hapticTrigger)
         .onChange(of: vm.hasCompletedOnboarding) { _, newValue in
             if newValue {

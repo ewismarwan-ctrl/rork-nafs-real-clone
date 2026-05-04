@@ -34,7 +34,6 @@ struct ContentView: View {
                 .transition(.opacity)
             } else {
                 OnboardingContainerView(storeViewModel: storeViewModel, languageManager: languageManager)
-                    .preferredColorScheme(.light)
                     .environment(appearance)
             }
         }
@@ -42,7 +41,7 @@ struct ContentView: View {
         .environment(languageManager)
         .environment(navigationState)
         .environment(appearance)
-        .preferredColorScheme(hasCompletedOnboarding ? appearance.appearance.colorScheme : .light)
+        .preferredColorScheme(appearance.appearance.colorScheme)
         .id(languageManager.current)
         .animation(.spring(response: 0.5, dampingFraction: 0.9), value: hasCompletedOnboarding)
         .animation(.spring(response: 0.5, dampingFraction: 0.9), value: showMainApp)

@@ -7,6 +7,7 @@ struct HomeDashboardView: View {
     @State private var showGarden: Bool = false
     @State private var pendingPrayer: PrayerName? = nil
     @State private var showMarkConfirm: Bool = false
+    @State private var showFutureAlert: Bool = false
     @State private var showPrayerSuccess: Bool = false
     @State private var lastCompletedPrayer: PrayerName? = nil
     @State private var lastCompletedCount: Int = 0
@@ -76,6 +77,14 @@ struct HomeDashboardView: View {
                     "هل أتممت صلاة \(NafsStrings.prayerName(prayer))؟"
                 ))
             }
+        }
+        .alert(L10n.text("Not Yet", "ليس بعد"), isPresented: $showFutureAlert) {
+            Button(L10n.text("OK", "حسناً"), role: .cancel) {}
+        } message: {
+            Text(L10n.text(
+                "You can mark this prayer complete when its time begins.",
+                "يمكنك تأكيد هذه الصلاة عند دخول وقتها."
+            ))
         }
         .fullScreenCover(isPresented: $showPrayerSuccess) {
             if let prayer = lastCompletedPrayer {
@@ -163,9 +172,14 @@ struct HomeDashboardView: View {
                         ForEach(row) { prayer in
                             let _ = completionTick
                             let done = PrayerCompletionStore.isCompleted(prayer.name, on: .now)
+                            let isFuture = prayer.time > .now
                             Button {
-                                pendingPrayer = prayer.name
-                                showMarkConfirm = true
+                                if isFuture {
+                                    showFutureAlert = true
+                                } else {
+                                    pendingPrayer = prayer.name
+                                    showMarkConfirm = true
+                                }
                             } label: {
                                 VStack(spacing: 6) {
                                     ZStack {
@@ -176,6 +190,12 @@ struct HomeDashboardView: View {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .font(.system(.caption2, weight: .bold))
                                                 .foregroundStyle(NafsTheme.gold)
+                                                .background(Circle().fill(NafsTheme.card).frame(width: 12, height: 12))
+                                                .offset(x: 9, y: -9)
+                                        } else if isFuture {
+                                            Image(systemName: "lock.fill")
+                                                .font(.system(.caption2, weight: .bold))
+                                                .foregroundStyle(NafsTheme.subtleText)
                                                 .background(Circle().fill(NafsTheme.card).frame(width: 12, height: 12))
                                                 .offset(x: 9, y: -9)
                                         }
@@ -199,6 +219,7 @@ struct HomeDashboardView: View {
                                             .strokeBorder(NafsTheme.gold.opacity(0.4), lineWidth: 1)
                                     }
                                 }
+                                .opacity(isFuture && !done ? 0.55 : 1.0)
                             }
                             .buttonStyle(.plain)
                             .disabled(done)

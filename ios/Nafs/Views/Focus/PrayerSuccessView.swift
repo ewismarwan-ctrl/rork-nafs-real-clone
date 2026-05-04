@@ -8,6 +8,7 @@ struct PrayerSuccessView: View {
     let onContinue: () -> Void
 
     @Environment(LanguageManager.self) private var lang
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var checkScale: CGFloat = 0.4
     @State private var checkOpacity: Double = 0
@@ -15,18 +16,13 @@ struct PrayerSuccessView: View {
     @State private var ringProgress: CGFloat = 0
     @State private var glowPulse: Bool = false
 
-    private let goldDark: Color = Color(hex: "D4B87A")
-    private let goldDeep: Color = Color(hex: "B8955A")
-    private let bg: Color = Color(hex: "0A0A0C")
-    private let card: Color = Color(hex: "16161A")
-
     var body: some View {
         ZStack {
-            bg.ignoresSafeArea()
+            NafsTheme.background.ignoresSafeArea()
 
             // Subtle radial glow
             RadialGradient(
-                colors: [goldDark.opacity(0.18), .clear],
+                colors: [NafsTheme.gold.opacity(0.18), .clear],
                 center: .center,
                 startRadius: 10,
                 endRadius: 320
@@ -58,7 +54,6 @@ struct PrayerSuccessView: View {
             .padding(.bottom, 24)
             .padding(.top, 40)
         }
-        .preferredColorScheme(.dark)
         .sensoryFeedback(.success, trigger: checkOpacity > 0)
         .onAppear { animateIn() }
     }
@@ -68,13 +63,13 @@ struct PrayerSuccessView: View {
     private var checkmark: some View {
         ZStack {
             Circle()
-                .stroke(goldDark.opacity(0.18), lineWidth: 1)
+                .stroke(NafsTheme.gold.opacity(0.18), lineWidth: 1)
                 .frame(width: 168, height: 168)
 
             Circle()
                 .trim(from: 0, to: ringProgress)
                 .stroke(
-                    LinearGradient(colors: [goldDark, goldDeep], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    NafsTheme.goldGradient,
                     style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
@@ -83,7 +78,7 @@ struct PrayerSuccessView: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [goldDark.opacity(0.22), goldDeep.opacity(0.08)],
+                        colors: [NafsTheme.gold.opacity(0.22), NafsTheme.gold.opacity(0.08)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -93,12 +88,10 @@ struct PrayerSuccessView: View {
 
             Image(systemName: "checkmark")
                 .font(.system(size: 64, weight: .bold))
-                .foregroundStyle(
-                    LinearGradient(colors: [goldDark, goldDeep], startPoint: .top, endPoint: .bottom)
-                )
+                .foregroundStyle(NafsTheme.goldGradient)
                 .scaleEffect(checkScale)
                 .opacity(checkOpacity)
-                .shadow(color: goldDark.opacity(0.4), radius: 16, x: 0, y: 0)
+                .shadow(color: NafsTheme.goldShadow, radius: 16, x: 0, y: 0)
         }
     }
 
@@ -106,10 +99,10 @@ struct PrayerSuccessView: View {
         VStack(spacing: 4) {
             Text(L10n.text("Alhamdulillah,", "الحمد لله،"))
                 .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(goldDark)
+                .foregroundStyle(NafsTheme.gold)
             Text(L10n.text("you’ve prayed", "لقد صلّيت"))
                 .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(NafsTheme.text)
         }
         .multilineTextAlignment(.center)
     }
@@ -118,10 +111,10 @@ struct PrayerSuccessView: View {
         VStack(spacing: 4) {
             Text(L10n.text("Apps are now unlocked", "تم فتح التطبيقات الآن"))
                 .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(NafsTheme.subtleText)
             Text(L10n.text("You stayed consistent today", "بقيتَ على الالتزام اليوم"))
                 .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(NafsTheme.subtleText.opacity(0.85))
         }
         .multilineTextAlignment(.center)
     }
@@ -132,12 +125,12 @@ struct PrayerSuccessView: View {
                 ForEach(PrayerName.allCases, id: \.self) { p in
                     let done = prayerIndex(p) < completedCount
                     Capsule()
-                        .fill(done ? goldDark : Color.white.opacity(0.12))
+                        .fill(done ? NafsTheme.gold : NafsTheme.subtleText.opacity(0.18))
                         .frame(height: 6)
                         .overlay {
                             if done {
                                 Capsule()
-                                    .fill(goldDark.opacity(0.5))
+                                    .fill(NafsTheme.gold.opacity(0.5))
                                     .blur(radius: 6)
                             }
                         }
@@ -147,33 +140,33 @@ struct PrayerSuccessView: View {
             HStack(spacing: 6) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(.caption, weight: .semibold))
-                    .foregroundStyle(goldDark)
+                    .foregroundStyle(NafsTheme.gold)
                 Text(L10n.text(
                     "\(completedCount)/\(totalCount) prayers completed today",
                     "\(completedCount)/\(totalCount) صلاة أُتمت اليوم"
                 ))
                 .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(NafsTheme.text)
 
                 if streak > 0 {
                     Text("·")
-                        .foregroundStyle(.white.opacity(0.3))
+                        .foregroundStyle(NafsTheme.subtleText)
                     Image(systemName: "flame.fill")
                         .font(.system(.caption, weight: .semibold))
-                        .foregroundStyle(goldDark)
+                        .foregroundStyle(NafsTheme.gold)
                     Text(L10n.text("\(streak)-day streak", "سلسلة \(streak) يوم"))
                         .font(.system(.subheadline, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(NafsTheme.text)
                 }
             }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
-        .background(card)
+        .background(NafsTheme.card)
         .clipShape(.rect(cornerRadius: 18))
         .overlay {
             RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(goldDark.opacity(0.15), lineWidth: 1)
+                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
         }
     }
 
@@ -181,14 +174,12 @@ struct PrayerSuccessView: View {
         Button(action: onContinue) {
             Text(L10n.text("Continue", "متابعة"))
                 .font(.system(.headline, weight: .bold))
-                .foregroundStyle(Color(hex: "0A0A0C"))
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(
-                    LinearGradient(colors: [goldDark, goldDeep], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
+                .background(NafsTheme.goldGradient)
                 .clipShape(.rect(cornerRadius: 16))
-                .shadow(color: goldDark.opacity(0.35), radius: 18, x: 0, y: 8)
+                .shadow(color: NafsTheme.goldShadow, radius: 18, x: 0, y: 8)
         }
         .buttonStyle(.plain)
     }
