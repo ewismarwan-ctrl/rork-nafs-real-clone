@@ -359,18 +359,12 @@ struct OBPhoneMockupView: View {
                         .opacity(appeared ? 1 : 0)
                         .scaleEffect(appeared ? 1 : 0.92)
 
-                    VStack(spacing: 6) {
-                        Text("Your apps are locked until you've prayed.")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundStyle(NafsTheme.text.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                        Text("So you can focus on what actually matters.")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundStyle(NafsTheme.text.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.horizontal, 24)
-                    .opacity(appeared ? 1 : 0)
+                    Text("Your apps stay locked until you've prayed.")
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(NafsTheme.text.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .opacity(appeared ? 1 : 0)
 
                     Spacer(minLength: 8)
                 }
@@ -401,52 +395,94 @@ private struct EmptyPhoneMockup: View {
                 )
                 .shadow(color: .black.opacity(0.2), radius: 28, y: 14)
 
-            // Looping demo video — fills the phone screen
-            LoopingVideoPlayer(resourceName: "onboarding_lock", ext: "mov")
+            // Demo video — plays once, user can replay
+            PlayOnceVideoPlayer(resourceName: "onboarding_lock", ext: "mov")
                 .padding(8)
                 .clipShape(.rect(cornerRadius: 36, style: .continuous))
-                .allowsHitTesting(false)
         }
     }
 }
 
-private struct LoopingVideoPlayer: UIViewRepresentable {
+private struct PlayOnceVideoPlayer: UIViewRepresentable {
     let resourceName: String
     let ext: String
 
-    func makeUIView(context: Context) -> LoopingVideoUIView {
-        let view = LoopingVideoUIView()
+    func makeUIView(context: Context) -> PlayOnceVideoUIView {
+        let view = PlayOnceVideoUIView()
         if let url = Bundle.main.url(forResource: resourceName, withExtension: ext) {
             view.configure(with: url)
         }
         return view
     }
 
-    func updateUIView(_ uiView: LoopingVideoUIView, context: Context) {}
+    func updateUIView(_ uiView: PlayOnceVideoUIView, context: Context) {}
 }
 
-final class LoopingVideoUIView: UIView {
-    private var player: AVQueuePlayer?
-    private var looper: AVPlayerLooper?
+final class PlayOnceVideoUIView: UIView {
+    private var player: AVPlayer?
+    private var endObserver: NSObjectProtocol?
+    private let replayButton = UIButton(type: .system)
+    private var hasPlayed = false
 
     override class var layerClass: AnyClass { AVPlayerLayer.self }
     private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
 
     func configure(with url: URL) {
         let item = AVPlayerItem(url: url)
-        let queue = AVQueuePlayer(playerItem: item)
-        queue.isMuted = true
-        queue.actionAtItemEnd = .advance
-        looper = AVPlayerLooper(player: queue, templateItem: item)
-        player = queue
-        playerLayer.player = queue
+        let p = AVPlayer(playerItem: item)
+        p.isMuted = true
+        p.actionAtItemEnd = .pause
+        player = p
+        playerLayer.player = p
         playerLayer.videoGravity = .resizeAspectFill
-        queue.play()
+
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            self?.showReplay()
+        }
+
+        setupReplayButton()
+        p.play()
     }
 
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        if window != nil { player?.play() }
+    private func setupReplayButton() {
+        var config = UIButton.Configuration.filled()
+        config.image = UIImage(systemName: "arrow.counterclockwise", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold))
+        config.baseBackgroundColor = UIColor.black.withAlphaComponent(0.55)
+        config.baseForegroundColor = .white
+        config.cornerStyle = .capsule
+        config.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14)
+        replayButton.configuration = config
+        replayButton.alpha = 0
+        replayButton.translatesAutoresizingMaskIntoConstraints = false
+        replayButton.addTarget(self, action: #selector(replayTapped), for: .touchUpInside)
+        addSubview(replayButton)
+        NSLayoutConstraint.activate([
+            replayButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            replayButton.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    @objc private func replayTapped() {
+        player?.seek(to: .zero)
+        player?.play()
+        UIView.animate(withDuration: 0.2) { self.replayButton.alpha = 0 }
+    }
+
+    private func showReplay() {
+        UIView.animate(withDuration: 0.25) { self.replayButton.alpha = 1 }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer.frame = bounds
+    }
+
+    deinit {
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
     }
 }
 
