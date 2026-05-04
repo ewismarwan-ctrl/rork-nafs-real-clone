@@ -37,6 +37,8 @@ class OnboardingViewModel {
         switch currentScreen {
         case .appSelection:
             return !blockedDistractions.isEmpty
+        case .name:
+            return !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         default:
             return true
         }
@@ -44,7 +46,7 @@ class OnboardingViewModel {
 
     var requiresAnswer: Bool {
         switch currentScreen {
-        case .appSelection:
+        case .appSelection, .name:
             return !canProceed
         default:
             return false

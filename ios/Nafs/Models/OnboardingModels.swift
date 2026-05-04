@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum OnboardingScreen: Int, CaseIterable {
     case splash = 0
     case languageSelection
+    case name           // What should we call you?
     case problem        // Stop delaying / Salah
     case discipline     // You don't lack / discipline
     case oneScroll      // It starts with / one scroll
@@ -12,6 +13,7 @@ nonisolated enum OnboardingScreen: Int, CaseIterable {
     case automation     // No reminders. / No willpower.
     case appSelection   // Select apps to block
     case phoneMockup    // Empty phone mockup placeholder
+    case location       // Enable accurate prayer times
     case reward         // You pray → it unlocks
     case paywall
 }

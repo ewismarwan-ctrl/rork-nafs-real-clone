@@ -31,6 +31,7 @@ struct OnboardingContainerView: View {
                     switch vm.currentScreen {
                     case .splash: SplashScreenView(vm: vm)
                     case .languageSelection: LanguageSelectionView(languageManager: languageManager) { vm.goNext() }
+                    case .name: NameScreenView(vm: vm)
                     case .problem: OBProblemView(vm: vm)
                     case .discipline: OBDisciplineView(vm: vm)
                     case .oneScroll: OBOneScrollView(vm: vm)
@@ -40,6 +41,7 @@ struct OnboardingContainerView: View {
                     case .automation: OBAutomationView(vm: vm)
                     case .appSelection: OBAppSelectionView(vm: vm)
                     case .phoneMockup: OBPhoneMockupView(vm: vm)
+                    case .location: LocationScreenView(vm: vm)
                     case .reward: OBRewardView(vm: vm)
                     case .paywall: PaywallScreenView(vm: vm, storeViewModel: storeViewModel)
                     }

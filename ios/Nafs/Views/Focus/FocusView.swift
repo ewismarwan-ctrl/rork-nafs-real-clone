@@ -15,6 +15,9 @@ struct FocusView: View {
     @State private var showPremiumGate: Bool = false
     @State private var showPrayConfirm: Bool = false
     @State private var prayerLockEnabled: Bool = true
+    @State private var showFirstPrayerRating: Bool = false
+    @State private var feedbackText: String = ""
+    @State private var showFeedbackSheet: Bool = false
 
     @Environment(LanguageManager.self) private var lang
 
@@ -85,6 +88,31 @@ struct FocusView: View {
                     onSuccess: { showPremiumGate = false }
                 )
             }
+            .sheet(isPresented: $showFirstPrayerRating) {
+                FirstPrayerRatingSheet(
+                    onYes: {
+                        showFirstPrayerRating = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            RatingService.shared.requestReview()
+                        }
+                    },
+                    onNotReally: {
+                        showFirstPrayerRating = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showFeedbackSheet = true
+                        }
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showFeedbackSheet) {
+                FeedbackSheet(text: $feedbackText) {
+                    showFeedbackSheet = false
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
         }
         .task {
             loadPrayerLockEnabled()
@@ -105,6 +133,21 @@ struct FocusView: View {
                 screenTimeService.activePrayerLock = nil
                 screenTimeService.removeShields()
             }
+        }
+    }
+
+    private func triggerFirstPrayerRatingIfNeeded() {
+        let defaults = UserDefaults.standard
+        let countKey = "nafs_prayerCompletionCount"
+        let promptedKey = "nafs_firstPrayerRatingShown"
+        let count = defaults.integer(forKey: countKey) + 1
+        defaults.set(count, forKey: countKey)
+        let alreadyPrompted = defaults.bool(forKey: promptedKey)
+        let alreadyRated = RatingService.shared.hasRated
+        guard count == 1, !alreadyPrompted, !alreadyRated else { return }
+        defaults.set(true, forKey: promptedKey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            showFirstPrayerRating = true
         }
     }
 
@@ -326,6 +369,7 @@ struct FocusView: View {
                     Button(L10n.text("Yes, I’ve prayed", "نعم، لقد صليت")) {
                         screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
                         unlockSuccess.toggle()
+                        triggerFirstPrayerRatingIfNeeded()
                     }
                     Button(L10n.text("Not yet", "ليس بعد"), role: .cancel) {}
                 } message: {
