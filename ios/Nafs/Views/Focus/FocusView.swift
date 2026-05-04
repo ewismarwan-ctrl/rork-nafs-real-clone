@@ -41,7 +41,8 @@ struct FocusView: View {
                         toggleCard
                         if prayerLockEnabled {
                             statusCard
-                            nextPrayerCard
+                            todayCard
+                            streakCard
                         }
                         appSelectionCard
                         manageSection
@@ -408,39 +409,50 @@ struct FocusView: View {
         }
     }
 
-    // MARK: - Next prayer card
-    private var nextPrayerCard: some View {
+    // MARK: - Today card
+    private var todayCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(NafsTheme.gold.opacity(0.12))
-                        .frame(width: 42, height: 42)
-                    Image(systemName: "clock.fill")
-                        .font(.system(.body, weight: .semibold))
-                        .foregroundStyle(NafsTheme.gold)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.text("Next lock", "القفل القادم"))
-                        .font(.system(.caption, weight: .bold))
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.text("Today", "اليوم"))
+                        .font(.system(.title3, weight: .bold))
+                        .foregroundStyle(NafsTheme.text)
+                    Text(todayDateString)
+                        .font(.system(.caption, weight: .medium))
                         .foregroundStyle(NafsTheme.subtleText)
-                        .tracking(0.8)
-                    if let next = viewModel.nextPrayer {
-                        Text("\(NafsStrings.prayerName(next.name)) \(lang.isArabic ? "بعد" : "in") \(viewModel.nextPrayerCountdown)")
-                            .font(.system(.headline, weight: .bold))
-                            .foregroundStyle(NafsTheme.text)
-                    } else {
-                        Text(L10n.text("No upcoming prayer", "لا توجد صلاة قادمة"))
-                            .font(.system(.headline, weight: .bold))
-                            .foregroundStyle(NafsTheme.text)
-                    }
                 }
                 Spacer()
+                if let next = viewModel.nextPrayer {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(L10n.text("Next", "القادمة"))
+                            .font(.system(.caption2, weight: .bold))
+                            .foregroundStyle(NafsTheme.subtleText)
+                            .tracking(0.8)
+                        Text("\(NafsStrings.prayerName(next.name)) · \(viewModel.nextPrayerCountdown)")
+                            .font(.system(.subheadline, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                    }
+                }
             }
 
             if !viewModel.prayerTimes.isEmpty {
                 prayerTimesList
+                progressSummary
+            }
+
+            if let nextLock = nextLockText {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(.caption2, weight: .semibold))
+                        .foregroundStyle(NafsTheme.gold)
+                    Text(nextLock)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(NafsTheme.subtleText)
+                    Spacer()
+                }
+                .padding(10)
+                .background(NafsTheme.gold.opacity(0.08))
+                .clipShape(.rect(cornerRadius: 12))
             }
         }
         .padding(18)
@@ -455,10 +467,11 @@ struct FocusView: View {
     private var prayerTimesList: some View {
         VStack(spacing: 8) {
             ForEach(viewModel.prayerTimes) { prayer in
+                let done = PrayerCompletionStore.isCompleted(prayer.name, on: .now)
                 HStack(spacing: 12) {
                     Image(systemName: prayer.name.icon)
                         .font(.system(.caption, weight: .semibold))
-                        .foregroundStyle(prayer.isNext ? NafsTheme.gold : NafsTheme.subtleText)
+                        .foregroundStyle(done ? NafsTheme.gold : (prayer.isNext ? NafsTheme.gold : NafsTheme.subtleText))
                         .frame(width: 20)
                     Text(NafsStrings.prayerName(prayer.name))
                         .font(.system(.subheadline, weight: .semibold))
@@ -467,12 +480,117 @@ struct FocusView: View {
                     Text(prayer.timeString)
                         .font(.system(.caption, weight: .medium))
                         .foregroundStyle(NafsTheme.subtleText)
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(done ? NafsTheme.gold : NafsTheme.subtleText.opacity(0.4))
                 }
                 .padding(12)
                 .background(NafsTheme.background)
                 .clipShape(.rect(cornerRadius: 14))
             }
         }
+    }
+
+    private var progressSummary: some View {
+        let completed = PrayerCompletionStore.completedCount(on: .now)
+        let total = PrayerName.allCases.count
+        return HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(.caption, weight: .semibold))
+                .foregroundStyle(NafsTheme.gold)
+            Text(L10n.text("\(completed)/\(total) prayers completed", "\(completed)/\(total) صلوات مكتملة"))
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(NafsTheme.text)
+            Spacer()
+            ProgressView(value: Double(completed), total: Double(total))
+                .progressViewStyle(.linear)
+                .tint(NafsTheme.gold)
+                .frame(width: 90)
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Streak
+    private var streakCard: some View {
+        let streak = PrayerCompletionStore.currentStreakDays()
+        let cal = Calendar.current
+        let days = PrayerCompletionStore.recentDays(7, calendar: cal)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text("Consistency", "الانتظام"))
+                        .font(.system(.caption, weight: .bold))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .tracking(0.8)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(.title3, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                        Text("\(streak)")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                            .contentTransition(.numericText())
+                        Text(streak == 1 ? L10n.text("Day Streak", "يوم متتالٍ") : L10n.text("Day Streak", "أيام متتالية"))
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(NafsTheme.text)
+                    }
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                ForEach(days, id: \.self) { day in
+                    let allDone = PrayerCompletionStore.allCompleted(on: day)
+                    let isToday = cal.isDateInToday(day)
+                    VStack(spacing: 6) {
+                        Circle()
+                            .fill(allDone ? NafsTheme.gold : NafsTheme.background)
+                            .frame(width: 22, height: 22)
+                            .overlay {
+                                if allDone {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(.white)
+                                } else if isToday {
+                                    Circle()
+                                        .strokeBorder(NafsTheme.gold, lineWidth: 1.5)
+                                }
+                            }
+                        Text(weekdayLabel(for: day))
+                            .font(.system(.caption2, weight: .semibold))
+                            .foregroundStyle(isToday ? NafsTheme.gold : NafsTheme.subtleText)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(18)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
+        }
+    }
+
+    private var todayDateString: String {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMM d"
+        return f.string(from: .now)
+    }
+
+    private func weekdayLabel(for date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EE"
+        return f.string(from: date)
+    }
+
+    private var nextLockText: String? {
+        guard let next = viewModel.nextPrayer else { return nil }
+        return L10n.text(
+            "\(NafsStrings.prayerName(next.name)) locks at \(next.timeString)",
+            "يقفل عند \(NafsStrings.prayerName(next.name)) الساعة \(next.timeString)"
+        )
     }
 
     // MARK: - App selection

@@ -5,6 +5,13 @@ struct HomeDashboardView: View {
     let storeViewModel: StoreViewModel
     @State private var showPanicButton: Bool = false
     @State private var showGarden: Bool = false
+    @State private var pendingPrayer: PrayerName? = nil
+    @State private var showMarkConfirm: Bool = false
+    @State private var showPrayerSuccess: Bool = false
+    @State private var lastCompletedPrayer: PrayerName? = nil
+    @State private var lastCompletedCount: Int = 0
+    @State private var lastCompletedStreak: Int = 0
+    @State private var completionTick: Int = 0
     @Environment(LanguageManager.self) private var lang
     @Environment(AppNavigationState.self) private var navigationState
 
@@ -52,8 +59,55 @@ struct HomeDashboardView: View {
         .navigationDestination(isPresented: $showGarden) {
             GardenOfDeedsView(viewModel: viewModel, storeViewModel: storeViewModel)
         }
+        .confirmationDialog(
+            confirmTitle,
+            isPresented: $showMarkConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.text("Yes, I’ve prayed", "نعم، لقد صليت")) {
+                if let prayer = pendingPrayer { completePrayer(prayer) }
+            }
+            Button(L10n.text("Not yet", "ليس بعد"), role: .cancel) {
+                pendingPrayer = nil
+            }
+        } message: {
+            if let prayer = pendingPrayer {
+                Text(L10n.text(
+                    "Did you complete your \(NafsStrings.prayerName(prayer)) prayer?",
+                    "هل أتممت صلاة \(NafsStrings.prayerName(prayer))؟"
+                ))
+            }
+        }
+        .fullScreenCover(isPresented: $showPrayerSuccess) {
+            if let prayer = lastCompletedPrayer {
+                PrayerSuccessView(
+                    prayer: prayer,
+                    completedCount: lastCompletedCount,
+                    totalCount: PrayerName.allCases.count,
+                    streak: lastCompletedStreak,
+                    onContinue: { showPrayerSuccess = false }
+                )
+            }
         }
         }
+        }
+    }
+
+    private var confirmTitle: String {
+        L10n.text("Confirm Prayer", "تأكيد الصلاة")
+    }
+
+    private func completePrayer(_ prayer: PrayerName) {
+        PrayerCompletionStore.markCompleted(prayer, on: .now)
+        let count = PrayerCompletionStore.completedCount(on: .now)
+        let streak = PrayerCompletionStore.currentStreakDays()
+        lastCompletedPrayer = prayer
+        lastCompletedCount = count
+        lastCompletedStreak = streak
+        completionTick += 1
+        let _ = viewModel.logHabit(.fardOnTime)
+        pendingPrayer = nil
+        showPrayerSuccess = true
     }
 
     private var headerSection: some View {
@@ -135,23 +189,47 @@ struct HomeDashboardView: View {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     HStack(spacing: 8) {
                         ForEach(row) { prayer in
-                            VStack(spacing: 6) {
-                                Image(systemName: prayer.name.icon)
-                                    .font(.system(.caption))
-                                    .foregroundStyle(prayer.isNext ? .white : NafsTheme.subtleText)
-                                Text(NafsStrings.prayerName(prayer.name))
-                                    .font(.system(.caption2, weight: .semibold))
-                                    .foregroundStyle(prayer.isNext ? .white : NafsTheme.text)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                Text(prayer.timeString)
-                                    .font(.system(.caption2))
-                                    .foregroundStyle(prayer.isNext ? .white.opacity(0.8) : NafsTheme.subtleText)
+                            let _ = completionTick
+                            let done = PrayerCompletionStore.isCompleted(prayer.name, on: .now)
+                            Button {
+                                pendingPrayer = prayer.name
+                                showMarkConfirm = true
+                            } label: {
+                                VStack(spacing: 6) {
+                                    ZStack {
+                                        Image(systemName: prayer.name.icon)
+                                            .font(.system(.caption))
+                                            .foregroundStyle(done ? NafsTheme.gold : (prayer.isNext ? .white : NafsTheme.subtleText))
+                                        if done {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(.caption2, weight: .bold))
+                                                .foregroundStyle(NafsTheme.gold)
+                                                .background(Circle().fill(NafsTheme.card).frame(width: 12, height: 12))
+                                                .offset(x: 9, y: -9)
+                                        }
+                                    }
+                                    Text(NafsStrings.prayerName(prayer.name))
+                                        .font(.system(.caption2, weight: .semibold))
+                                        .foregroundStyle(done ? NafsTheme.gold : (prayer.isNext ? .white : NafsTheme.text))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                    Text(prayer.timeString)
+                                        .font(.system(.caption2))
+                                        .foregroundStyle(done ? NafsTheme.gold.opacity(0.8) : (prayer.isNext ? .white.opacity(0.8) : NafsTheme.subtleText))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(done ? NafsTheme.gold.opacity(0.12) : (prayer.isNext ? NafsTheme.gold : Color.clear))
+                                .clipShape(.rect(cornerRadius: 12))
+                                .overlay {
+                                    if done {
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(NafsTheme.gold.opacity(0.4), lineWidth: 1)
+                                    }
+                                }
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(prayer.isNext ? NafsTheme.gold : Color.clear)
-                            .clipShape(.rect(cornerRadius: 12))
+                            .buttonStyle(.plain)
+                            .disabled(done)
                         }
 
                         if row.count < 3 {

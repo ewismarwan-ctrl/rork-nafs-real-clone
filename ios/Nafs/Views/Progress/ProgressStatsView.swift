@@ -37,6 +37,7 @@ struct ProgressStatsView: View {
                     .frame(maxWidth: .infinity)
 
                     weekSummaryCard
+                    prayerStreakCard
                     prayerGrid
                     scaleStatus
                     statsGrid
@@ -58,11 +59,92 @@ struct ProgressStatsView: View {
     }
 
     private var weekSummaryCard: some View {
-        HStack(spacing: 12) {
-            SummaryStatPill(value: "\(Int(viewModel.prayerConsistency * (showMonthly ? 30 : 7) * 5))", label: "Prayers", icon: "moon.stars.fill")
+        let cal = Calendar.current
+        let days = showMonthly ? 30 : 7
+        let prayersDone = PrayerCompletionStore.recentDays(days, calendar: cal)
+            .reduce(0) { $0 + PrayerCompletionStore.completedCount(on: $1) }
+        return HStack(spacing: 12) {
+            SummaryStatPill(value: "\(prayersDone)", label: "Prayers", icon: "moon.stars.fill")
             SummaryStatPill(value: "\(viewModel.quranStreak * 10)", label: "Quran min", icon: "book.fill")
             SummaryStatPill(value: "\(viewModel.hasanatBalance)", label: "Earned", icon: "sparkle")
         }
+    }
+
+    private var prayerStreakCard: some View {
+        let streak = PrayerCompletionStore.currentStreakDays()
+        let cal = Calendar.current
+        let days = PrayerCompletionStore.recentDays(7, calendar: cal)
+        let todayCount = PrayerCompletionStore.completedCount(on: .now)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.text("Prayer Streak", "سلسلة الصلاة"))
+                        .font(.system(.caption, weight: .bold))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .tracking(0.8)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(.title3, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                        Text("\(streak)")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                            .contentTransition(.numericText())
+                        Text(streak == 1 ? L10n.text("day", "يوم") : L10n.text("days", "أيام"))
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(NafsTheme.text)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(L10n.text("Today", "اليوم"))
+                        .font(.system(.caption2, weight: .bold))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .tracking(0.8)
+                    Text("\(todayCount)/\(PrayerName.allCases.count)")
+                        .font(.system(.title3, weight: .bold))
+                        .foregroundStyle(NafsTheme.text)
+                }
+            }
+
+            HStack(spacing: 8) {
+                ForEach(days, id: \.self) { day in
+                    let allDone = PrayerCompletionStore.allCompleted(on: day)
+                    let isToday = cal.isDateInToday(day)
+                    VStack(spacing: 6) {
+                        Circle()
+                            .fill(allDone ? NafsTheme.gold : NafsTheme.background)
+                            .frame(width: 22, height: 22)
+                            .overlay {
+                                if allDone {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(.white)
+                                } else if isToday {
+                                    Circle().strokeBorder(NafsTheme.gold, lineWidth: 1.5)
+                                }
+                            }
+                        Text(weekdayLabel(for: day))
+                            .font(.system(.caption2, weight: .semibold))
+                            .foregroundStyle(isToday ? NafsTheme.gold : NafsTheme.subtleText)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(20)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func weekdayLabel(for date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EE"
+        return f.string(from: date)
     }
 
     private var prayerGrid: some View {
@@ -265,11 +347,24 @@ struct ProgressStatsView: View {
     }
 
     private func prayerStatus(prayer: PrayerName, day: String) -> PrayerStatus {
-        let hash = (prayer.rawValue.hashValue &+ day.hashValue) & 0x7FFFFFFF
-        let mod = hash % 10
-        if mod < 2 { return .missed }
-        if mod < 4 { return .late }
-        return .onTime
+        let cal = Calendar.current
+        let date: Date? = {
+            if showMonthly {
+                guard let weekIndex = Int(day.dropFirst()) else { return nil }
+                return cal.date(byAdding: .day, value: -7 * (4 - weekIndex), to: .now)
+            } else {
+                let order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                guard let idx = order.firstIndex(of: day) else { return nil }
+                let weekday = cal.component(.weekday, from: .now) // 1=Sun
+                let mondayBased = (weekday + 5) % 7 // 0=Mon
+                let delta = idx - mondayBased
+                return cal.date(byAdding: .day, value: delta, to: .now)
+            }
+        }()
+        guard let date else { return .missed }
+        let isFuture = date > .now && !cal.isDateInToday(date)
+        if isFuture { return .missed }
+        return PrayerCompletionStore.isCompleted(prayer, on: date) ? .onTime : .missed
     }
 }
 

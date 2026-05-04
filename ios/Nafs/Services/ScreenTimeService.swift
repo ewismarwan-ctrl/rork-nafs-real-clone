@@ -219,44 +219,42 @@ class ScreenTimeService {
         defaults.set(lastLockedPrayerAt ?? .now, forKey: "nafs_prayerActiveLockDate")
     }
 
-    private func prayerCompletionKey(for prayer: PrayerName, on date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar.current
-        formatter.timeZone = TimeZone.current
-        formatter.dateFormat = "yyyy-MM-dd"
-        return "nafs_prayerComplete_\(formatter.string(from: date))_\(prayer.rawValue)"
-    }
-
     private func isPrayerCompleted(_ prayer: PrayerName, on date: Date) -> Bool {
-        defaults.bool(forKey: prayerCompletionKey(for: prayer, on: date))
+        PrayerCompletionStore.isCompleted(prayer, on: date)
     }
 
     func completedPrayersToday() -> Int {
-        let today = Date.now
-        return PrayerName.allCases.reduce(0) { acc, prayer in
-            acc + (isPrayerCompleted(prayer, on: today) ? 1 : 0)
-        }
+        PrayerCompletionStore.completedCount(on: .now)
     }
 
     func currentStreakDays() -> Int {
-        let cal = Calendar.current
-        var streak = 0
-        var day = Date.now
-        for _ in 0..<365 {
-            let allDone = PrayerName.allCases.allSatisfy { isPrayerCompleted($0, on: day) }
-            if allDone {
-                streak += 1
-                guard let prev = cal.date(byAdding: .day, value: -1, to: day) else { break }
-                day = prev
-            } else {
-                break
-            }
-        }
-        return streak
+        PrayerCompletionStore.currentStreakDays()
     }
 
     private func markPrayerCompleted(_ prayer: PrayerName, on date: Date) {
-        defaults.set(true, forKey: prayerCompletionKey(for: prayer, on: date))
+        PrayerCompletionStore.markCompleted(prayer, on: date)
+    }
+
+    /// Manually mark an arbitrary prayer complete (e.g. from Home tap-to-mark).
+    /// If the prayer matches the active lock, shields are removed.
+    @discardableResult
+    func markPrayerCompleteManually(_ prayer: PrayerName, prayerTimes: [PrayerTime]) -> (count: Int, streak: Int) {
+        markPrayerCompleted(prayer, on: .now)
+        markPrayerCompletedInAppGroup(prayer)
+        if activePrayerLock == prayer {
+            activePrayerLock = nil
+            lastLockedPrayerAt = nil
+            defaults.removeObject(forKey: "nafs_prayerActiveLock")
+            defaults.removeObject(forKey: "nafs_prayerActiveLockDate")
+            sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLock")
+            sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLockDate")
+            removeShields()
+            evaluatePrayerLock(prayerTimes: prayerTimes, focusMode: .auto)
+            if self.activePrayerLock != nil {
+                applyShields()
+            }
+        }
+        return (completedPrayersToday(), currentStreakDays())
     }
 
     private func checkAuthStatus() {
