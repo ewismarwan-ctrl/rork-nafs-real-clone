@@ -107,8 +107,9 @@ struct OBProblemView: View {
             blackText: "Stop delaying",
             goldText: "Salah",
             subtextLines: [
-                "Your phone is the biggest distraction.",
-                "Even when you intend to pray."
+                "You don't usually miss prayer completely.",
+                "But it keeps getting pushed back.",
+                "And the day slips away."
             ],
             bottom: { NafsButton(title: "Continue") { vm.goNext() } }
         )
@@ -125,8 +126,9 @@ struct OBDisciplineView: View {
             blackText: "You don't lack",
             goldText: "discipline",
             subtextLines: [
-                "You're just constantly distracted.",
-                "That's the real problem."
+                "You already want to pray on time.",
+                "But your environment makes it difficult.",
+                "Your phone is always within reach."
             ],
             bottom: { NafsButton(title: "Continue") { vm.goNext() } }
         )
@@ -144,7 +146,8 @@ struct OBOneScrollView: View {
             goldText: "one scroll",
             subtextLines: [
                 "You open your phone for a second.",
-                "And lose track of time."
+                "Just to check something small.",
+                "And suddenly 20–30 minutes are gone."
             ],
             bottom: { NafsButton(title: "Continue") { vm.goNext() } }
         )
@@ -161,8 +164,9 @@ struct OBNotFaultView: View {
             blackText: "It's not your",
             goldText: "fault",
             subtextLines: [
-                "Apps are designed to keep you scrolling.",
-                "That's why it's hard to stop."
+                "Apps are designed to keep your attention.",
+                "They're built to make you stay longer.",
+                "That's why it feels hard to stop."
             ],
             bottom: { NafsButton(title: "I get it") { vm.goNext() } }
         )
@@ -179,7 +183,8 @@ struct OBSystemView: View {
             blackText: "So we built a",
             goldText: "system",
             subtextLines: [
-                "Nafs removes distractions.",
+                "Instead of relying on willpower,",
+                "we remove the distraction completely.",
                 "At the exact moment you need to pray."
             ],
             bottom: { NafsButton(title: "Show me") { vm.goNext() } }
@@ -198,7 +203,8 @@ struct OBWhenSalahView: View {
             goldText: "Salah",
             subtextLines: [
                 "Your distracting apps are locked.",
-                "No more \u{201C}just 5 minutes\u{201D}."
+                "No more \u{201C}just 5 minutes\u{201D}.",
+                "No more pushing it back."
             ],
             bottom: { NafsButton(title: "Continue") { vm.goNext() } }
         )
@@ -215,8 +221,9 @@ struct OBAutomationView: View {
             blackText: "No reminders.",
             goldText: "No willpower.",
             subtextLines: [
-                "It happens automatically.",
-                "You don't have to think about it."
+                "You don't need more notifications.",
+                "You need fewer distractions.",
+                "And this works automatically."
             ],
             bottom: { NafsButton(title: "Continue") { vm.goNext() } }
         )
@@ -246,7 +253,10 @@ struct OBAppSelectionView: View {
 
                     VStack(spacing: 16) {
                         OnboardingHeadline(black: "Select apps", gold: "to block")
-                        OnboardingSubtext(lines: ["Choose what distracts you most."])
+                        OnboardingSubtext(lines: [
+                            "Choose what usually pulls your attention.",
+                            "These will be locked at prayer time."
+                        ])
                     }
                     .padding(.horizontal, 24)
 
@@ -347,12 +357,18 @@ struct OBPhoneMockupView: View {
                         .opacity(appeared ? 1 : 0)
                         .scaleEffect(appeared ? 1 : 0.92)
 
-                    Text("Your apps are locked until you've prayed.")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(NafsTheme.text.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .opacity(appeared ? 1 : 0)
+                    VStack(spacing: 6) {
+                        Text("Your apps are locked until you've prayed.")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(NafsTheme.text.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                        Text("So you can focus on what actually matters.")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(NafsTheme.text.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 24)
+                    .opacity(appeared ? 1 : 0)
 
                     Spacer(minLength: 8)
                 }
@@ -410,7 +426,11 @@ struct OBRewardView: View {
             blackText: "",
             goldText: "You pray \u{2192} it unlocks",
             goldFirst: true,
-            subtextLines: ["Simple.", "Instant.", "Done."],
+            subtextLines: [
+                "No friction.",
+                "No extra steps.",
+                "Just pray, and continue your day."
+            ],
             bottom: { NafsButton(title: "Activate Nafs") { vm.goNext() } }
         )
     }

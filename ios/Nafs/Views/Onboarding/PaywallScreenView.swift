@@ -52,7 +52,7 @@ struct PaywallScreenView: View {
 
     private let benefits: [String] = [
         "Apps lock at prayer time",
-        "Pray without distractions",
+        "Remove distractions instantly",
         "Build real consistency"
     ]
 
@@ -65,8 +65,8 @@ struct PaywallScreenView: View {
                     VStack(spacing: 14) {
                         OnboardingHeadline(black: "Stop delaying", gold: "Salah")
                         OnboardingSubtext(lines: [
-                            "Your apps will lock at prayer time.",
-                            "So you can finally pray on time."
+                            "You've already seen how it works.",
+                            "Now let it run automatically for you."
                         ])
                     }
 
@@ -132,9 +132,14 @@ struct PaywallScreenView: View {
                     }
                 }
 
-                Text("Cancel anytime")
+                Text("Less than a coffee per week")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(NafsTheme.gold.opacity(0.85))
+
+                Text("Cancel anytime. No commitment during trial.")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NafsTheme.subtleText)
+                    .multilineTextAlignment(.center)
 
                 HStack(spacing: 14) {
                     Button {
@@ -145,11 +150,12 @@ struct PaywallScreenView: View {
                             if success { vm.completeOnboarding() }
                         }
                     } label: {
-                        Text(isRestoring ? "Restoring…" : "Restore")
+                        Text(isRestoring ? "Restoring…" : "Restore Purchases")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
                             .underline()
                     }
+                    .disabled(isRestoring)
 
                     Text("·").font(.system(size: 11)).foregroundStyle(NafsTheme.subtleText.opacity(0.5))
 
@@ -158,7 +164,7 @@ struct PaywallScreenView: View {
                             UIApplication.shared.open(url)
                         }
                     } label: {
-                        Text("Privacy")
+                        Text("Privacy Policy")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
                             .underline()
@@ -171,7 +177,7 @@ struct PaywallScreenView: View {
                             UIApplication.shared.open(url)
                         }
                     } label: {
-                        Text("Terms")
+                        Text("Terms of Use")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
                             .underline()
