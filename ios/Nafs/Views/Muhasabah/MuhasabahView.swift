@@ -107,7 +107,7 @@ struct MuhasabahView: View {
                 moodSelector
 
                 NafsButton(
-                    title: L10n.text("Complete Muhasabah — +25 Hasanat", "أكمل المحاسبة — +٢٥ حسنة"),
+                    title: L10n.text("Complete Muhasabah", "أكمل المحاسبة"),
                     isEnabled: viewModel.canComplete
                 ) {
                     viewModel.completeMuhasabah(userName: appViewModel.userName, appViewModel: appViewModel)
@@ -285,7 +285,7 @@ struct MuhasabahView: View {
             VStack(spacing: 20) {
                 CrescentStarMark(size: 56, color: NafsTheme.gold)
 
-                Text("+25 Hasanat")
+                Text(L10n.text("Alhamdulillah", "الحمد لله"))
                     .font(.system(.title2, weight: .bold))
                     .foregroundStyle(NafsTheme.gold)
 

@@ -121,7 +121,7 @@ class OnboardingViewModel {
         if insights.isEmpty {
             insights.append(L10n.text("Your complete Islamic companion is ready to strengthen every part of your deen.", "رفيقك الإسلامي الشامل جاهز لتقوية كل جزء من دينك."))
             insights.append(L10n.text("Nafs AI is ready to answer any Islamic question you have, 24/7.", "نفس AI جاهز للإجابة على أي سؤال إسلامي لديك، على مدار الساعة."))
-            insights.append(L10n.text("Earn your screen time through ibadah with the Hasanat system.", "اكسب وقت شاشتك من خلال العبادة بنظام الحسنات."))
+            insights.append(L10n.text("Distracting apps will lock automatically at prayer time.", "ستُقفل التطبيقات المشتتة تلقائياً عند وقت الصلاة."))
         }
 
         return Array(insights.prefix(4))

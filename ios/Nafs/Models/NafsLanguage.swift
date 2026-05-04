@@ -53,14 +53,12 @@ struct LocalizedText {
 
 enum NafsStrings {
     static let assalamuAlaikum = LocalizedText(en: "Assalamu Alaikum", ar: "السلام عليكم")
-    static let hasanatBalance = LocalizedText(en: "HASANAT BALANCE", ar: "رصيد الحسنات")
     static let currentStreak = LocalizedText(en: "Current Streak", ar: "السلسلة الحالية")
     static let prayerTimes = LocalizedText(en: "Prayer Times", ar: "مواقيت الصلاة")
     static let quickLog = LocalizedText(en: "Quick Log", ar: "تسجيل سريع")
     static let gardenOfDeeds = LocalizedText(en: "Garden of Deeds", ar: "حديقة الأعمال")
     static let days = LocalizedText(en: "days", ar: "أيام")
     static let day = LocalizedText(en: "day", ar: "يوم")
-    static let hasanat = LocalizedText(en: "Hasanat", ar: "حسنات")
 
     static let fajr = LocalizedText(en: "Fajr", ar: "الفجر")
     static let dhuhr = LocalizedText(en: "Dhuhr", ar: "الظهر")
@@ -104,7 +102,6 @@ enum NafsStrings {
     static let muhasabah = LocalizedText(en: "Muhasabah", ar: "المحاسبة")
     static let qiblaFinder = LocalizedText(en: "Qibla Finder", ar: "اتجاه القبلة")
     static let dhikr = LocalizedText(en: "Dhikr", ar: "ذكر")
-    static let hasanatWallet = LocalizedText(en: "Hasanat Wallet", ar: "محفظة الحسنات")
     static let myJourney = LocalizedText(en: "My Journey", ar: "رحلتي")
 
     static let profile = LocalizedText(en: "Profile", ar: "الملف الشخصي")

@@ -47,12 +47,6 @@ class MuhasabahViewModel {
         saveEntries()
         UserDefaults.standard.set(Date(), forKey: lastCompletedKey)
 
-        appViewModel.hasanatBalance += 25
-        appViewModel.transactions.insert(
-            Transaction(title: "Muhasabah completed +25", tokens: 25, isEarned: true, icon: "moon.stars.fill"),
-            at: 0
-        )
-
         completionMessage = "JazakAllah khair, \(userName). Allah loves those who hold themselves accountable. \u{1F319}"
         showCompletion = true
 

@@ -11,14 +11,6 @@ class AppViewModel {
 
     var isPremium: Bool = false
 
-    var hasanatBalance: Int {
-        get { UserDefaults.standard.integer(forKey: "nafs_hasanatBalance") }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "nafs_hasanatBalance")
-            SharedDataService.syncToWidgets(balance: newValue, weeklyEarned: weeklyEarned)
-        }
-    }
-
     var streakDays: Int {
         get { UserDefaults.standard.integer(forKey: "nafs_streakDays") }
         set { UserDefaults.standard.set(newValue, forKey: "nafs_streakDays") }
@@ -49,11 +41,6 @@ class AppViewModel {
     }
 
     var todayLogs: Set<String> = []
-    var transactions: [Transaction] = []
-    var weeklyEarned: [Int] = [0, 0, 0, 0, 0, 0, 0] {
-        didSet { SharedDataService.syncToWidgets(balance: hasanatBalance, weeklyEarned: weeklyEarned) }
-    }
-    var weeklySpent: [Int] = [0, 0, 0, 0, 0, 0, 0]
 
     var prayerTimes: [PrayerTime] = []
     var blockedApps: [BlockedApp] = []
@@ -99,18 +86,11 @@ class AppViewModel {
     ]
 
     var scaleState: ScaleState {
-        if hasanatBalance == 0 && streakDays == 0 { return .balanced }
+        if streakDays == 0 && prayerConsistency == 0 { return .balanced }
         if prayerConsistency >= 0.9 { return .balanced }
         if prayerConsistency >= 0.7 { return .tippingGold }
         if prayerConsistency >= 0.4 { return .tippingDark }
         return .fallen
-    }
-
-    var balanceMessage: String {
-        if hasanatBalance >= 2000 { return "MashaAllah! Your dedication is inspiring." }
-        if hasanatBalance >= 1000 { return "Strong progress. Keep building your Hasanat." }
-        if hasanatBalance >= 500 { return "You're on the right path. Every deed counts." }
-        return "Start logging your ibadah to earn Hasanat."
     }
 
     var hijriDate: String {
@@ -221,13 +201,7 @@ class AppViewModel {
         guard !todayLogs.contains(key) else { return false }
         todayLogs.insert(key)
         saveTodayLogs()
-        hasanatBalance += habit.tokens
 
-        let tx = Transaction(title: habit.rawValue, tokens: habit.tokens, isEarned: true, icon: habit.icon)
-        transactions.insert(tx, at: 0)
-        saveTransactions()
-
-        updateWeeklyEarned(tokens: habit.tokens)
         updateGardenFromHabit(habit)
         updateStreak()
         updateHabitStreak(habit)
@@ -302,35 +276,14 @@ class AppViewModel {
         optionalHabits = current
     }
 
-    func spendHasanatForScreenTimeUnlock(option: UnlockOption) -> Bool {
-        guard hasanatBalance >= option.tokens else { return false }
-        hasanatBalance -= option.tokens
-
-        let tx = Transaction(title: "Screen Time Unlock (\(option.duration))", tokens: option.tokens, isEarned: false, icon: "lock.open.fill")
-        transactions.insert(tx, at: 0)
-        saveTransactions()
-        updateWeeklySpent(tokens: option.tokens)
-        return true
-    }
-
-    func unlockApp(_ app: BlockedApp, option: UnlockOption) -> Bool {
-        guard hasanatBalance >= option.tokens else { return false }
-        hasanatBalance -= option.tokens
-
-        let tx = Transaction(title: "Unlocked \(app.name) (\(option.duration))", tokens: option.tokens, isEarned: false, icon: "lock.open.fill")
-        transactions.insert(tx, at: 0)
-        saveTransactions()
-
-        updateWeeklySpent(tokens: option.tokens)
-
-        if let idx = blockedApps.firstIndex(where: { $0.id == app.id }) {
-            let expiry = Date.now.addingTimeInterval(TimeInterval(option.durationMinutes * 60))
+    func unlockAllForMinutes(_ minutes: Int) {
+        let expiry = Date.now.addingTimeInterval(TimeInterval(minutes * 60))
+        for idx in blockedApps.indices {
             blockedApps[idx].isLocked = false
             blockedApps[idx].unlockExpiresAt = expiry
         }
         saveBlockedApps()
         scheduleRelockCheck()
-        return true
     }
 
     func addBlockedApp(name: String, icon: String, color: String) {
@@ -389,24 +342,6 @@ class AppViewModel {
         return false
     }
 
-    private func updateWeeklyEarned(tokens: Int) {
-        let weekday = Calendar.current.component(.weekday, from: .now)
-        let index = (weekday + 5) % 7
-        var earned = weeklyEarned
-        earned[index] += tokens
-        weeklyEarned = earned
-        saveWeeklyData()
-    }
-
-    private func updateWeeklySpent(tokens: Int) {
-        let weekday = Calendar.current.component(.weekday, from: .now)
-        let index = (weekday + 5) % 7
-        var spent = weeklySpent
-        spent[index] += tokens
-        weeklySpent = spent
-        saveWeeklyData()
-    }
-
     private func updateGardenFromHabit(_ habit: HabitType) {
         switch habit {
         case .fardOnTime, .fardLate:
@@ -444,53 +379,8 @@ class AppViewModel {
     }
 
     private func loadPersistedData() {
-        loadTransactions()
-        loadWeeklyData()
         loadTodayLogs()
         recalculateConsistency()
-    }
-
-    private func saveTransactions() {
-        let toSave = Array(transactions.prefix(50))
-        if let data = try? JSONEncoder().encode(toSave) {
-            UserDefaults.standard.set(data, forKey: "nafs_transactions")
-        }
-    }
-
-    private func loadTransactions() {
-        guard let data = UserDefaults.standard.data(forKey: "nafs_transactions"),
-              let saved = try? JSONDecoder().decode([Transaction].self, from: data) else { return }
-        transactions = saved
-    }
-
-    private func saveWeeklyData() {
-        if let earnedData = try? JSONEncoder().encode(weeklyEarned) {
-            UserDefaults.standard.set(earnedData, forKey: "nafs_weeklyEarned")
-        }
-        if let spentData = try? JSONEncoder().encode(weeklySpent) {
-            UserDefaults.standard.set(spentData, forKey: "nafs_weeklySpent")
-        }
-    }
-
-    private func loadWeeklyData() {
-        let savedWeek = UserDefaults.standard.integer(forKey: "nafs_savedWeekOfYear")
-        let currentWeek = Calendar.current.component(.weekOfYear, from: .now)
-
-        if savedWeek != currentWeek {
-            weeklyEarned = [0, 0, 0, 0, 0, 0, 0]
-            weeklySpent = [0, 0, 0, 0, 0, 0, 0]
-            UserDefaults.standard.set(currentWeek, forKey: "nafs_savedWeekOfYear")
-            saveWeeklyData()
-        } else {
-            if let earnedData = UserDefaults.standard.data(forKey: "nafs_weeklyEarned"),
-               let earned = try? JSONDecoder().decode([Int].self, from: earnedData) {
-                weeklyEarned = earned
-            }
-            if let spentData = UserDefaults.standard.data(forKey: "nafs_weeklySpent"),
-               let spent = try? JSONDecoder().decode([Int].self, from: spentData) {
-                weeklySpent = spent
-            }
-        }
     }
 
     private func loadTodayLogs() {
@@ -527,9 +417,11 @@ class AppViewModel {
     }
 
     private func recalculateConsistency() {
-        let totalEarned = weeklyEarned.reduce(0, +)
-        let maxPossible = 50 * 5 * 7
-        prayerConsistency = maxPossible > 0 ? min(Double(totalEarned) / Double(maxPossible), 1.0) : 0
+        let cal = Calendar.current
+        let days = PrayerCompletionStore.recentDays(7, calendar: cal)
+        let total = days.reduce(0) { $0 + PrayerCompletionStore.completedCount(on: $1) }
+        let maxPossible = PrayerName.allCases.count * 7
+        prayerConsistency = maxPossible > 0 ? min(Double(total) / Double(maxPossible), 1.0) : 0
     }
 
     private func startFreePlanTimer() {
@@ -561,6 +453,4 @@ class AppViewModel {
     }
 }
 
-extension Transaction {
-    static let sampleHistory: [Transaction] = []
-}
+

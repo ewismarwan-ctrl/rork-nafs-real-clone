@@ -66,7 +66,7 @@ struct ProgressStatsView: View {
         return HStack(spacing: 12) {
             SummaryStatPill(value: "\(prayersDone)", label: "Prayers", icon: "moon.stars.fill")
             SummaryStatPill(value: "\(viewModel.quranStreak * 10)", label: "Quran min", icon: "book.fill")
-            SummaryStatPill(value: "\(viewModel.hasanatBalance)", label: "Earned", icon: "sparkle")
+            SummaryStatPill(value: "\(PrayerCompletionStore.currentStreakDays())", label: "Streak", icon: "flame.fill")
         }
     }
 
@@ -257,7 +257,7 @@ struct ProgressStatsView: View {
             StatCard(label: "Prayer", value: "\(Int(viewModel.prayerConsistency * 100))%", icon: "moon.stars.fill", subtitle: "Weekly consistency")
             StatCard(label: "Quran", value: "\(viewModel.quranStreak) days", icon: "book.fill", subtitle: "Current streak")
             StatCard(label: "Screen Time", value: viewModel.screenTimeReduced > 0 ? "-\(viewModel.screenTimeReduced)%" : "0%", icon: "iphone.slash", subtitle: "vs last week")
-            StatCard(label: "Hasanat", value: "\(viewModel.hasanatBalance)", icon: "sparkle", subtitle: "Total balance")
+            StatCard(label: "Streak", value: "\(PrayerCompletionStore.currentStreakDays()) days", icon: "flame.fill", subtitle: "All prayers complete")
         }
     }
 

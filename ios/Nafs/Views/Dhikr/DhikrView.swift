@@ -466,10 +466,6 @@ struct DhikrCounterView: View {
                     .font(.system(.body))
                     .foregroundStyle(NafsTheme.subtleText)
 
-                Text(lang.isArabic ? "+٢٠ حسنات" : "+20 Hasanat")
-                    .font(.system(.headline, weight: .bold))
-                    .foregroundStyle(NafsTheme.gold)
-
                 NafsButton(title: lang.isArabic ? "متابعة" : "Continue") {
                     withAnimation { showCompletion = false }
                 }

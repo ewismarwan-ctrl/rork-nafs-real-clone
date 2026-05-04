@@ -106,7 +106,7 @@ struct FreePlanBanner: View {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.circle.fill")
                     .foregroundStyle(NafsTheme.gold)
-                Text("You're on the free plan. Your Hasanat are not being tracked.")
+                Text("You're on the free plan. Unlock prayer-time app locking with Premium.")
                     .font(.system(.caption, weight: .medium))
                     .foregroundStyle(NafsTheme.text)
                 Spacer()

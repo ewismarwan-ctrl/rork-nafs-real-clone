@@ -583,7 +583,7 @@ struct AboutNafsSheet: View {
                         .foregroundStyle(NafsTheme.text)
                         .lineSpacing(4)
 
-                    Text("Every feature in Nafs is designed around one principle: your ibadah has real value. The Hasanat token system turns your daily worship into a currency that governs your screen time. Pray, read Quran, make dhikr — and your phone opens up. Skip your prayers — and your distracting apps stay locked.")
+                    Text("Every feature in Nafs is designed around one principle: your ibadah comes first. When it's time to pray, your distracting apps lock automatically — so you can focus on what matters. Pray, and your phone opens back up. Miss it, and the apps stay closed.")
                         .font(.system(.body))
                         .foregroundStyle(NafsTheme.text)
                         .lineSpacing(4)

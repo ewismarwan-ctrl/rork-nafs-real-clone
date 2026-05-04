@@ -35,8 +35,6 @@ struct AppBlockerView: View {
     private var blockerContent: some View {
         ScrollView {
             VStack(spacing: 20) {
-                balanceCard
-
                 if !screenTimeService.isAuthorized {
                     authorizationCard
                 } else {
@@ -90,57 +88,6 @@ struct AppBlockerView: View {
         }
     }
 
-    private var balanceCard: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L10n.text("Your Hasanat", "حسناتك"))
-                    .font(.system(.caption, weight: .medium))
-                    .foregroundStyle(NafsTheme.subtleText)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(viewModel.hasanatBalance)")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(NafsTheme.gold)
-                        .contentTransition(.numericText())
-                    Image(systemName: "sparkle")
-                        .font(.system(.subheadline, weight: .bold))
-                        .foregroundStyle(NafsTheme.gold)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(L10n.text("Blocked", "محجوبة"))
-                    .font(.system(.caption, weight: .medium))
-                    .foregroundStyle(NafsTheme.subtleText)
-                Text("\(screenTimeService.selectedAppCount + screenTimeService.selectedCategoryCount)")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(NafsTheme.text)
-            }
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(L10n.text("Status", "الحالة"))
-                    .font(.system(.caption, weight: .medium))
-                    .foregroundStyle(NafsTheme.subtleText)
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(screenTimeService.isUnlocked ? Color(hex: "4CAF50") : .red)
-                        .frame(width: 8, height: 8)
-                    Text(screenTimeService.isUnlocked ? L10n.text("Open", "مفتوح") : L10n.text("Locked", "مقفل"))
-                        .font(.system(.caption, weight: .semibold))
-                        .foregroundStyle(screenTimeService.isUnlocked ? Color(hex: "4CAF50") : .red)
-                }
-            }
-        }
-        .padding(18)
-        .background(NafsTheme.card)
-        .clipShape(.rect(cornerRadius: 18))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
-        )
-    }
-
     private var authorizationCard: some View {
         VStack(spacing: 16) {
             ZStack {
@@ -164,7 +111,7 @@ struct AppBlockerView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 authBenefitRow(icon: "lock.shield.fill", text: L10n.text("System-level blocking — apps are truly blocked", "حجب على مستوى النظام — التطبيقات محجوبة فعلاً"))
-                authBenefitRow(icon: "sparkle", text: L10n.text("Earn hasanat through ibadah to unlock temporarily", "اكسب حسنات بالعبادة لفتحها مؤقتاً"))
+                authBenefitRow(icon: "clock.fill", text: L10n.text("Distractions are locked at prayer time, automatically", "تُقفل المشتتات عند وقت الصلاة تلقائياً"))
                 authBenefitRow(icon: "clock.arrow.circlepath", text: L10n.text("Apps re-lock automatically when time expires", "يعاد قفل التطبيقات تلقائياً عند انتهاء الوقت"))
             }
             .padding(.vertical, 4)
@@ -258,7 +205,7 @@ struct AppBlockerView: View {
                         Text(L10n.text("No Apps Blocked Yet", "لا توجد تطبيقات محجوبة"))
                             .font(.system(.headline, weight: .bold))
                             .foregroundStyle(NafsTheme.text)
-                        Text(L10n.text("Select the apps you want to block. They'll be shielded until you spend hasanat to unlock them.", "اختر التطبيقات التي تريد حجبها. ستبقى محمية حتى تنفق حسنات لفتحها."))
+                        Text(L10n.text("Select the apps you want to block. They'll lock automatically at prayer time.", "اختر التطبيقات التي تريد حجبها. ستُقفل تلقائياً عند وقت الصلاة."))
                             .font(.system(.subheadline))
                             .foregroundStyle(NafsTheme.subtleText)
                             .multilineTextAlignment(.center)
@@ -351,57 +298,37 @@ struct AppBlockerView: View {
                 Image(systemName: "lock.open.fill")
                     .font(.system(.caption, weight: .semibold))
                     .foregroundStyle(NafsTheme.gold)
-                Text(L10n.text("Spend Hasanat to Unlock", "أنفق حسنات للفتح"))
+                Text(L10n.text("Quick Unlock", "فتح سريع"))
                     .font(.system(.headline, weight: .semibold))
                     .foregroundStyle(NafsTheme.text)
             }
 
-            Text(L10n.text("Temporarily unblock all shielded apps by spending your earned hasanat.", "افتح جميع التطبيقات المحجوبة مؤقتاً بإنفاق حسناتك المكتسبة."))
+            Text(L10n.text("Temporarily unblock all shielded apps. They will re-lock automatically when the timer ends.", "افتح جميع التطبيقات المحجوبة مؤقتاً. ستُقفل تلقائياً عند انتهاء الوقت."))
                 .font(.system(.caption))
                 .foregroundStyle(NafsTheme.subtleText)
 
             ForEach(UnlockOption.options) { option in
-                let canAfford = viewModel.hasanatBalance >= option.tokens
                 Button {
-                    if viewModel.spendHasanatForScreenTimeUnlock(option: option) {
-                        screenTimeService.temporaryUnlock(minutes: option.durationMinutes)
-                        unlockSuccess = true
-                    } else {
-                        unlockFailed = true
-                    }
+                    screenTimeService.temporaryUnlock(minutes: option.durationMinutes)
+                    unlockSuccess = true
                 } label: {
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(option.duration)
-                                .font(.system(.body, weight: .semibold))
-                                .foregroundStyle(canAfford ? NafsTheme.text : NafsTheme.subtleText)
-                            if !canAfford {
-                                Text(L10n.text("Not enough hasanat", "الحسنات غير كافية"))
-                                    .font(.system(.caption2))
-                                    .foregroundStyle(.red.opacity(0.7))
-                            }
-                        }
-
+                        Text(option.duration)
+                            .font(.system(.body, weight: .semibold))
+                            .foregroundStyle(NafsTheme.text)
                         Spacer()
-
-                        HStack(spacing: 4) {
-                            Text("\(option.tokens)")
-                                .font(.system(.body, weight: .bold))
-                                .foregroundStyle(canAfford ? NafsTheme.gold : NafsTheme.subtleText)
-                            Image(systemName: "sparkle")
-                                .font(.system(.caption2, weight: .bold))
-                                .foregroundStyle(canAfford ? NafsTheme.gold : NafsTheme.subtleText)
-                        }
+                        Image(systemName: "chevron.right")
+                            .font(.system(.caption, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
                     }
                     .padding(16)
-                    .background(canAfford ? NafsTheme.gold.opacity(0.06) : NafsTheme.card.opacity(0.5))
+                    .background(NafsTheme.gold.opacity(0.06))
                     .clipShape(.rect(cornerRadius: 14))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .strokeBorder(canAfford ? NafsTheme.gold.opacity(0.2) : NafsTheme.cardBorder, lineWidth: 1)
+                            .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
                     )
                 }
-                .disabled(!canAfford)
             }
         }
         .padding(18)
@@ -440,9 +367,9 @@ struct AppBlockerView: View {
             stepRow(number: "1", text: L10n.text("Enable Screen Time access above", "فعّل صلاحية مدة الاستخدام أعلاه"))
             stepRow(number: "2", text: L10n.text("Select the apps and categories you want to block", "اختر التطبيقات والفئات التي تريد حجبها"))
             stepRow(number: "3", text: L10n.text("Selected apps are instantly blocked at the system level", "التطبيقات المختارة تُحجب فوراً على مستوى النظام"))
-            stepRow(number: "4", text: L10n.text("Earn Hasanat through ibadah (prayer, Quran, dhikr)", "اكسب الحسنات بالعبادة (صلاة، قرآن، ذكر)"))
-            stepRow(number: "5", text: L10n.text("Spend Hasanat to temporarily unlock all blocked apps", "أنفق الحسنات لفتح جميع التطبيقات المحجوبة مؤقتاً"))
-            stepRow(number: "6", text: L10n.text("Apps automatically re-lock when the timer expires", "يُعاد قفل التطبيقات تلقائياً عند انتهاء المؤقت"))
+            stepRow(number: "4", text: L10n.text("Apps lock automatically at prayer time", "تُقفل التطبيقات تلقائياً عند وقت الصلاة"))
+            stepRow(number: "5", text: L10n.text("Use Quick Unlock for a temporary break when needed", "استخدم الفتح السريع للاستراحة المؤقتة عند الحاجة"))
+            stepRow(number: "6", text: L10n.text("Apps re-lock automatically when the timer expires", "يُعاد قفل التطبيقات تلقائياً عند انتهاء المؤقت"))
 
             HStack(spacing: 10) {
                 Image(systemName: "heart.fill")

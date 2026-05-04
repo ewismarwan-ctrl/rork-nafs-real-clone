@@ -177,14 +177,6 @@ struct GuidedPlansView: View {
     private func completeStep(_ stepId: String) {
         guard !completedSteps.contains(stepId) else { return }
         completedSteps.insert(stepId)
-        if appViewModel.isPremium {
-            appViewModel.hasanatBalance += 35
-            appViewModel.transactions.insert(
-                Transaction(title: "Guided Plan step completed", tokens: 35, isEarned: true, icon: "map.fill"),
-                at: 0
-            )
-        }
-
         if let plan = NafsPlan.all.first(where: { $0.id == activePlanId }) {
             let completedToday = plan.steps.first(where: { $0.id == stepId })
             if completedToday?.day == activePlanDay && activePlanDay < plan.durationDays {
@@ -268,7 +260,7 @@ private struct PlanDetailSheet: View {
                         Text(plan.subtitle)
                             .font(.system(.subheadline))
                             .foregroundStyle(NafsTheme.subtleText)
-                        Text("\(plan.durationDays) days · 35 Hasanat per step")
+                        Text("\(plan.durationDays) days")
                             .font(.system(.caption, weight: .medium))
                             .foregroundStyle(NafsTheme.gold)
                     }
@@ -399,7 +391,7 @@ private struct DayStepCard: View {
                         Button {
                             onComplete()
                         } label: {
-                            Text("Complete Step · +35 Hasanat")
+                            Text("Complete Step")
                                 .font(.system(.caption, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)

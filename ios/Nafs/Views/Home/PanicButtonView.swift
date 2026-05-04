@@ -204,15 +204,11 @@ struct PanicButtonView: View {
                 .foregroundStyle(NafsTheme.gold)
                 .symbolEffect(.bounce)
 
-            Text(L10n.text("MashaAllah, \(appViewModel.userName). You just earned 15 Hasanat by staying strong.", "ما شاء الله، \(appViewModel.userName). لقد كسبت ١٥ حسنة بصبرك."))
+            Text(L10n.text("MashaAllah, \(appViewModel.userName). You stayed strong.", "ما شاء الله، \(appViewModel.userName). لقد صبرت."))
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(NafsTheme.text)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
-
-            Text(L10n.text("+15 Hasanat earned", "+١٥ حسنة مكتسبة"))
-                .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(NafsTheme.gold)
 
             VStack(spacing: 12) {
                 Button {
@@ -279,11 +275,7 @@ struct PanicButtonView: View {
     }
 
     private func awardTokens() {
-        appViewModel.hasanatBalance += 15
-        appViewModel.transactions.insert(
-            Transaction(title: "Panic Button completed", tokens: 15, isEarned: true, icon: "moon.circle.fill"),
-            at: 0
-        )
+        // No-op: reward system removed.
     }
 }
 

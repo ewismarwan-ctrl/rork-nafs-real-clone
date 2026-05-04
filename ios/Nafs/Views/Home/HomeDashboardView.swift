@@ -22,7 +22,6 @@ struct HomeDashboardView: View {
                     VStack(spacing: 0) {
                     headerSection
                     scaleSection
-                    balanceCard
                     prayerStrip
                     focusShortcutCard
                     habitsQuickSummary
@@ -138,33 +137,6 @@ struct HomeDashboardView: View {
                 .animation(.spring(response: 0.8, dampingFraction: 0.6), value: viewModel.scaleState.tilt)
         }
         .padding(.vertical, 8)
-    }
-
-    private var balanceCard: some View {
-        VStack(spacing: 6) {
-            Text(NafsStrings.hasanatBalance.localized)
-                .font(.system(.caption2, weight: .semibold))
-                .foregroundStyle(NafsTheme.subtleText)
-                .tracking(1.5)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("\(viewModel.hasanatBalance)")
-                    .font(.system(size: 42, weight: .bold, design: .default))
-                    .foregroundStyle(NafsTheme.gold)
-                    .contentTransition(.numericText())
-                Text(NafsStrings.hasanat.localized)
-                    .font(.system(.title3, weight: .semibold))
-                    .foregroundStyle(NafsTheme.gold.opacity(0.7))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .background(NafsTheme.card)
-        .clipShape(.rect(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
-        )
-        .padding(.horizontal, 20)
     }
 
     private var prayerStrip: some View {
@@ -509,15 +481,6 @@ struct HomeDashboardView: View {
             }
 
             Spacer()
-
-            HStack(spacing: 4) {
-                Text("\(viewModel.hasanatBalance)")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(NafsTheme.gold)
-                Image(systemName: "sparkle")
-                    .font(.system(.caption2, weight: .bold))
-                    .foregroundStyle(NafsTheme.gold)
-            }
         }
         .padding(14)
         .background(NafsTheme.card)

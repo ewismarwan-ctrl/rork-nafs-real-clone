@@ -288,7 +288,6 @@ nonisolated struct CircleMember: Identifiable, Sendable {
     let name: String
     let consistency: Double
     let color: String
-    let hasanatThisWeek: Int
 }
 
 nonisolated struct NafsCircle: Identifiable, Sendable {
@@ -301,17 +300,16 @@ nonisolated struct NafsCircle: Identifiable, Sendable {
         id: "1",
         name: "Family Circle",
         members: [
-            CircleMember(id: "1", name: "Ahmad", consistency: 0.92, color: "C8A96A", hasanatThisWeek: 820),
-            CircleMember(id: "2", name: "Fatima", consistency: 0.88, color: "8B6F47", hasanatThisWeek: 760),
-            CircleMember(id: "3", name: "Omar", consistency: 0.75, color: "A0845C", hasanatThisWeek: 640),
-            CircleMember(id: "4", name: "Aisha", consistency: 0.95, color: "D4B87A", hasanatThisWeek: 890),
-            CircleMember(id: "5", name: "Yusuf", consistency: 0.68, color: "B8955A", hasanatThisWeek: 520),
+            CircleMember(id: "1", name: "Ahmad", consistency: 0.92, color: "C8A96A"),
+            CircleMember(id: "2", name: "Fatima", consistency: 0.88, color: "8B6F47"),
+            CircleMember(id: "3", name: "Omar", consistency: 0.75, color: "A0845C"),
+            CircleMember(id: "4", name: "Aisha", consistency: 0.95, color: "D4B87A"),
+            CircleMember(id: "5", name: "Yusuf", consistency: 0.68, color: "B8955A"),
         ],
         feedItems: [
             CircleFeedItem(id: "1", text: "Someone in your Circle just prayed Fajr 🌙", timeAgo: "2m ago"),
             CircleFeedItem(id: "2", text: "Someone completed their Quran reading 📖", timeAgo: "15m ago"),
             CircleFeedItem(id: "3", text: "Someone in your Circle logged dhikr ✨", timeAgo: "1h ago"),
-            CircleFeedItem(id: "4", text: "Someone just earned 100 Hasanat! 🌟", timeAgo: "2h ago"),
         ]
     )
 }

@@ -16,12 +16,7 @@ enum SharedDataService {
 
     static var shared: UserDefaults? { UserDefaults(suiteName: appGroupID) }
 
-    static func syncToWidgets(balance: Int, weeklyEarned: [Int]) {
-        guard let shared = shared else { return }
-        shared.set(balance, forKey: "nafs_hasanatBalance")
-        if let data = try? JSONEncoder().encode(weeklyEarned) {
-            shared.set(data, forKey: "nafs_weeklyEarned")
-        }
+    static func syncToWidgets() {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
