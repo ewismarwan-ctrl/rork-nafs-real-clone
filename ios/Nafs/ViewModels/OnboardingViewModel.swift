@@ -20,13 +20,11 @@ class OnboardingViewModel {
     var locationSkipped: Bool = false
     var userLatitude: Double = 21.4225
     var userLongitude: Double = 39.8262
-    var paywallSubScreen: Int = 0
     var hasCompletedOnboarding: Bool = false
     var loadingProgress: Double = 0
     var loadingTextIndex: Int = 0
 
     // Redesigned onboarding state
-    var selectedDistraction: String = ""
     var blockedDistractions: Set<String> = []
 
     var totalScreens: Int { OnboardingScreen.allCases.count }
@@ -37,9 +35,7 @@ class OnboardingViewModel {
 
     var canProceed: Bool {
         switch currentScreen {
-        case .distractionPick:
-            return !selectedDistraction.isEmpty
-        case .microCommitment:
+        case .appSelection:
             return !blockedDistractions.isEmpty
         default:
             return true
@@ -48,7 +44,7 @@ class OnboardingViewModel {
 
     var requiresAnswer: Bool {
         switch currentScreen {
-        case .distractionPick, .microCommitment:
+        case .appSelection:
             return !canProceed
         default:
             return false
@@ -206,13 +202,6 @@ class OnboardingViewModel {
             selectedExcitingFeatures.remove(id)
         } else {
             selectedExcitingFeatures.insert(id)
-        }
-    }
-
-    func selectDistraction(_ id: String) {
-        selectedDistraction = id
-        if !id.isEmpty {
-            blockedDistractions.insert(id)
         }
     }
 

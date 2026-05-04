@@ -10,7 +10,6 @@ struct OnboardingContainerView: View {
     var body: some View {
         ZStack {
             NafsTheme.background.ignoresSafeArea()
-            IslamicPatternView(opacity: 0.04)
 
             VStack(spacing: 0) {
                 if vm.showProgressBar {
@@ -33,17 +32,15 @@ struct OnboardingContainerView: View {
                     case .splash: SplashScreenView(vm: vm)
                     case .languageSelection: LanguageSelectionView(languageManager: languageManager) { vm.goNext() }
                     case .problem: OBProblemView(vm: vm)
-                    case .ahaMoment: OBAhaView(vm: vm)
-                    case .distractionPick: OBDistractionPickView(vm: vm)
-                    case .reflection: OBReflectionView(vm: vm)
-                    case .reframe: OBReframeView(vm: vm)
-                    case .solution: OBSolutionView(vm: vm)
-                    case .microCommitment: OBMicroCommitmentView(vm: vm)
+                    case .discipline: OBDisciplineView(vm: vm)
+                    case .oneScroll: OBOneScrollView(vm: vm)
+                    case .notFault: OBNotFaultView(vm: vm)
+                    case .system: OBSystemView(vm: vm)
+                    case .whenSalah: OBWhenSalahView(vm: vm)
                     case .automation: OBAutomationView(vm: vm)
-                    case .liveDemo: OBLiveDemoView(vm: vm)
+                    case .appSelection: OBAppSelectionView(vm: vm)
+                    case .phoneMockup: OBPhoneMockupView(vm: vm)
                     case .reward: OBRewardView(vm: vm)
-                    case .progressBuild: OBProgressView(vm: vm)
-                    case .identityShift: OBIdentityShiftView(vm: vm)
                     case .paywall: PaywallScreenView(vm: vm, storeViewModel: storeViewModel)
                     }
                 }

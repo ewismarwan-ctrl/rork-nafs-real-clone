@@ -6,339 +6,6 @@ enum PaywallConstants {
     static let termsOfUseURL = NafsConstants.termsOfUseURL
 }
 
-struct PaywallScreenView: View {
-    let vm: OnboardingViewModel
-    let storeViewModel: StoreViewModel
-    @State private var appeared: Bool = false
-    @State private var subScreen: Int = 0
-    @State private var countdownMinutes: Int = 1440
-    @State private var hapticTrigger: Int = 0
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                ForEach(0..<3) { i in
-                    Capsule()
-                        .fill(i <= subScreen ? NafsTheme.gold : NafsTheme.card)
-                        .frame(height: 3)
-                        .animation(.spring(response: 0.3), value: subScreen)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
-
-            TabView(selection: $subScreen) {
-                PaywallFeaturesSubscreen(vm: vm, onContinue: { advanceSubscreen() })
-                    .tag(0)
-                PaywallTrustSubscreen(vm: vm, onContinue: { advanceSubscreen() })
-                    .tag(1)
-                PaywallPricingSubscreen(
-                    vm: vm,
-                    storeViewModel: storeViewModel,
-                    countdownMinutes: countdownMinutes,
-                    onStartTrial: {
-                        hapticTrigger += 1
-                        vm.completeOnboarding()
-                    },
-                    onFreePlan: {
-                        vm.completeOnboarding()
-                    }
-                )
-                .tag(2)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(.spring(response: 0.4, dampingFraction: 0.85), value: subScreen)
-        }
-        .sensoryFeedback(.success, trigger: hapticTrigger)
-        .onAppear {
-            withAnimation(.spring(response: 0.5).delay(0.1)) {
-                appeared = true
-            }
-        }
-    }
-
-    private func advanceSubscreen() {
-        if subScreen < 2 {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                subScreen += 1
-            }
-        }
-    }
-}
-
-struct PaywallFeaturesSubscreen: View {
-    let vm: OnboardingViewModel
-    let onContinue: () -> Void
-    @State private var appeared: Bool = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 16)
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    VStack(spacing: 10) {
-                        OnboardingHeadline(black: "Stop delaying", gold: "Salah")
-                        OnboardingSubtext(lines: [
-                            "You've already set everything up.",
-                            "Let Nafs handle the rest."
-                        ])
-                    }
-                    .padding(.top, 4)
-
-                    VStack(spacing: 8) {
-                        ForEach(vm.personalizedOutcomes, id: \.self) { outcome in
-                            HStack(spacing: 10) {
-                                Image(systemName: "sparkle")
-                                    .foregroundStyle(NafsTheme.gold)
-                                    .font(.system(.caption))
-                                Text(outcome)
-                                    .font(.system(.subheadline, weight: .medium))
-                                    .foregroundStyle(NafsTheme.text)
-                                Spacer()
-                            }
-                        }
-                    }
-                    .padding(16)
-                    .background(NafsTheme.gold.opacity(0.08))
-                    .clipShape(.rect(cornerRadius: 16))
-
-                    HStack(alignment: .top, spacing: 12) {
-                        PaywallTierCard(
-                            title: NafsStrings.freeTitle.localized,
-                            subtitle: NafsStrings.justATaste.localized,
-                            features: [
-                                ("checkmark", NafsStrings.prayerTimes.localized),
-                                ("checkmark", NafsStrings.qiblaFinder.localized),
-                                ("checkmark", NafsStrings.dhikr.localized),
-                                ("checkmark", NafsStrings.tabQuran.localized),
-                                ("checkmark", NafsStrings.hasanatBalance.localized),
-                                ("xmark", NafsStrings.focusMode.localized),
-                                ("xmark", NafsStrings.prayerLock.localized),
-                                ("xmark", NafsStrings.tabNafsAI.localized),
-                                ("xmark", NafsStrings.quranAudioFull.localized),
-                                ("xmark", NafsStrings.muhasabah.localized),
-                                ("xmark", NafsStrings.logHabits.localized),
-                                ("xmark", NafsStrings.widgetsFeature.localized),
-                            ],
-                            isPremium: false
-                        )
-
-                        PaywallTierCard(
-                            title: NafsStrings.premiumTitle.localized,
-                            subtitle: NafsStrings.completeDeen.localized,
-                            features: [
-                                ("checkmark", NafsStrings.focusMode.localized),
-                                ("checkmark", NafsStrings.prayerLock.localized),
-                                ("checkmark", NafsStrings.tabNafsAI.localized),
-                                ("checkmark", NafsStrings.quranAudioFull.localized),
-                                ("checkmark", NafsStrings.muhasabah.localized),
-                                ("checkmark", NafsStrings.logHabits.localized),
-                                ("checkmark", NafsStrings.widgetsFeature.localized),
-                                ("checkmark", NafsStrings.guidedPlans.localized),
-                                ("checkmark", NafsStrings.gardenOfDeeds.localized),
-                                ("checkmark", NafsStrings.disciplineMode.localized),
-                                ("checkmark", NafsStrings.panicMode.localized),
-                            ],
-                            isPremium: true
-                        )
-                    }
-
-                    Text(NafsStrings.masjidQuote.localized)
-                        .font(.system(.caption, weight: .medium))
-                        .foregroundStyle(NafsTheme.subtleText)
-                        .multilineTextAlignment(.center)
-                        .italic()
-                        .padding(.horizontal, 8)
-                }
-                .padding(.horizontal, 24)
-            }
-            .opacity(appeared ? 1 : 0)
-
-            Spacer().frame(height: 8)
-
-            NafsButton(title: NafsStrings.seePricing.localized) {
-                onContinue()
-            }
-            .padding(.horizontal, 24)
-
-            Spacer().frame(height: 32)
-        }
-        .onAppear {
-            withAnimation(.spring(response: 0.5).delay(0.1)) {
-                appeared = true
-            }
-        }
-    }
-}
-
-struct PaywallTierCard: View {
-    let title: String
-    let subtitle: String
-    let features: [(String, String)]
-    let isPremium: Bool
-
-    var body: some View {
-        VStack(spacing: 10) {
-            VStack(spacing: 2) {
-                Text(title)
-                    .font(.system(.headline, weight: .bold))
-                    .foregroundStyle(isPremium ? NafsTheme.gold : NafsTheme.text)
-                Text(subtitle)
-                    .font(.system(.caption2))
-                    .foregroundStyle(NafsTheme.subtleText)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(features, id: \.1) { icon, text in
-                    HStack(spacing: 6) {
-                        Image(systemName: icon == "checkmark" ? "checkmark.circle.fill" : "xmark.circle")
-                            .font(.system(size: 10))
-                            .foregroundStyle(icon == "checkmark" ? (isPremium ? NafsTheme.gold : .green.opacity(0.6)) : .red.opacity(0.4))
-                        Text(text)
-                            .font(.system(size: 10, weight: .regular))
-                            .foregroundStyle(icon == "checkmark" ? NafsTheme.text : NafsTheme.subtleText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
-                }
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(isPremium ? NafsTheme.gold.opacity(0.06) : NafsTheme.card)
-        .clipShape(.rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(isPremium ? NafsTheme.gold.opacity(0.4) : NafsTheme.cardBorder, lineWidth: isPremium ? 2 : 1)
-        )
-    }
-}
-
-struct PaywallTrustSubscreen: View {
-    let vm: OnboardingViewModel
-    let onContinue: () -> Void
-    @State private var appeared: Bool = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 16)
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    VStack(spacing: 16) {
-                        TrustBadge(icon: "lock.shield.fill", text: NafsStrings.trustNoData.localized)
-                        TrustBadge(icon: "bell.badge", text: NafsStrings.trustReminder.localized)
-                        TrustBadge(icon: "gearshape", text: NafsStrings.trustCancel.localized)
-                        TrustBadge(icon: "person.3.fill", text: NafsStrings.trustJoin.localized)
-                    }
-
-                    Text(NafsStrings.trustBuilt.localized)
-                        .font(.system(.subheadline, weight: .medium))
-                        .foregroundStyle(NafsTheme.text)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 8)
-
-                    HStack(spacing: 12) {
-                        PaywallStatCard(value: "5", label: L10n.text("Daily prayers\nto protect", "صلوات يومية\nلحمايتها"))
-                        PaywallStatCard(value: "1.8B", label: L10n.text("Muslims\nworldwide", "مسلم\nحول العالم"))
-                        PaywallStatCard(value: "0", label: L10n.text("Ads.\nEver.", "إعلانات.\nأبداً."))
-                    }
-
-                    Text(NafsStrings.trustBeAmong.localized)
-                        .font(.system(.caption, weight: .medium))
-                        .foregroundStyle(NafsTheme.subtleText)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 8)
-
-                    VStack(spacing: 8) {
-                        Rectangle()
-                            .fill(NafsTheme.gold.opacity(0.3))
-                            .frame(width: 40, height: 1)
-                        Text(L10n.text("\"Verily, Allah loves that when one of you does a deed, he does it with excellence.\"", "\"إن الله يحب إذا عمل أحدكم عملاً أن يتقنه.\""))
-                            .font(.system(.subheadline, weight: .medium))
-                            .foregroundStyle(NafsTheme.text)
-                            .multilineTextAlignment(.center)
-                            .italic()
-                        Text(L10n.text("— Prophet Muhammad \u{FDFA}", "— النبي محمد \u{FDFA}"))
-                            .font(.system(.caption, weight: .medium))
-                            .foregroundStyle(NafsTheme.gold)
-                    }
-                    .padding(16)
-                    .background(NafsTheme.card)
-                    .clipShape(.rect(cornerRadius: 16))
-                }
-                .padding(.horizontal, 24)
-            }
-            .opacity(appeared ? 1 : 0)
-
-            Spacer().frame(height: 8)
-
-            NafsButton(title: NafsStrings.seeMyPlan.localized) {
-                onContinue()
-            }
-            .padding(.horizontal, 24)
-
-            Spacer().frame(height: 32)
-        }
-        .onAppear {
-            withAnimation(.spring(response: 0.5).delay(0.1)) {
-                appeared = true
-            }
-        }
-    }
-}
-
-struct PaywallStatCard: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(value)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundStyle(NafsTheme.gold)
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(NafsTheme.subtleText)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .padding(.horizontal, 8)
-        .background(.white)
-        .clipShape(.rect(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
-        )
-    }
-}
-
-struct TrustBadge: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(.body))
-                .foregroundStyle(NafsTheme.gold)
-                .frame(width: 24)
-            Text(text)
-                .font(.system(.subheadline))
-                .foregroundStyle(NafsTheme.text)
-            Spacer()
-        }
-        .padding(14)
-        .background(NafsTheme.card)
-        .clipShape(.rect(cornerRadius: 12))
-    }
-}
-
 nonisolated enum SubscriptionPlan: String, CaseIterable, Sendable, Identifiable {
     case weekly, monthly, yearly
 
@@ -368,106 +35,80 @@ nonisolated enum SubscriptionPlan: String, CaseIterable, Sendable, Identifiable 
         }
     }
 
-    var badge: String? {
-        switch self {
-        case .weekly: return NafsStrings.tryItOut.localized
-        case .monthly: return nil
-        case .yearly: return NafsStrings.mostPopular.localized
-        }
-    }
-
     var hasTrial: Bool {
         self == .yearly
     }
-
-
-
-    var subtitle: String? {
-        switch self {
-        case .weekly: return nil
-        case .monthly: return nil
-        case .yearly: return NafsStrings.lessThanWeek.localized
-        }
-    }
 }
 
-struct PaywallPricingSubscreen: View {
+struct PaywallScreenView: View {
     let vm: OnboardingViewModel
     let storeViewModel: StoreViewModel
-    let countdownMinutes: Int
-    let onStartTrial: () -> Void
-    let onFreePlan: () -> Void
     @State private var appeared: Bool = false
     @State private var selectedPlan: SubscriptionPlan = .yearly
     @State private var hapticTrigger: Int = 0
+    @State private var purchaseTrigger: Int = 0
     @State private var purchaseError: String?
     @State private var isRestoring: Bool = false
 
-    private var benefits: [(String, String)] {
-        [
-            ("lock.shield.fill", L10n.text("Lock distracting apps during prayer times", "اقفل التطبيقات المشتتة أثناء أوقات الصلاة")),
-            ("checkmark.seal.fill", L10n.text("Stay consistent with your Salah", "حافظ على صلاتك بانتظام")),
-            ("book.fill", L10n.text("Build a daily Quran habit", "ابنِ عادة يومية مع القرآن")),
-            ("sparkles", L10n.text("Stay focused without distractions", "ركّز بلا تشتيت"))
-        ]
-    }
+    private let benefits: [String] = [
+        "Apps lock at prayer time",
+        "Pray without distractions",
+        "Build real consistency"
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer().frame(height: 12)
-
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 18) {
-                    VStack(spacing: 8) {
-                        Text(L10n.text("Take control of your Deen.", "تحكّم في دينك."))
-                            .font(.system(.title, weight: .bold))
-                            .foregroundStyle(NafsTheme.text)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text(L10n.text("Block distractions. Pray on time.", "احجب المشتتات. صلِّ في وقتها."))
-                            .font(.system(.subheadline, weight: .medium))
-                            .foregroundStyle(NafsTheme.subtleText)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.top, 4)
+                VStack(spacing: 28) {
+                    Spacer().frame(height: 16)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(benefits, id: \.1) { icon, text in
-                            HStack(spacing: 12) {
-                                Image(systemName: icon)
-                                    .font(.system(size: 14, weight: .semibold))
+                    VStack(spacing: 14) {
+                        OnboardingHeadline(black: "Stop delaying", gold: "Salah")
+                        OnboardingSubtext(lines: [
+                            "Your apps will lock at prayer time.",
+                            "So you can finally pray on time."
+                        ])
+                    }
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(benefits, id: \.self) { benefit in
+                            HStack(spacing: 14) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 13, weight: .bold))
                                     .foregroundStyle(NafsTheme.gold)
-                                    .frame(width: 22)
-                                Text(text)
-                                    .font(.system(.subheadline, weight: .medium))
+                                    .frame(width: 22, height: 22)
+                                    .background(Circle().fill(NafsTheme.gold.opacity(0.12)))
+                                Text(benefit)
+                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(NafsTheme.text)
-                                    .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 0)
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(NafsTheme.gold.opacity(0.06))
-                    .clipShape(.rect(cornerRadius: 16))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
-                    )
+                    .padding(.horizontal, 4)
 
                     VStack(spacing: 10) {
-                        ForEach(SubscriptionPlan.allCases.reversed()) { plan in
-                            PlanCard(
-                                plan: plan,
-                                isSelected: selectedPlan == plan,
-                                displayPrice: dynamicPrice(for: plan),
-                                dailyEquivalent: plan == .yearly ? dailyPrice(for: .yearly) : nil,
-                                onSelect: {
-                                    withAnimation(.spring(response: 0.3)) {
-                                        selectedPlan = plan
-                                        hapticTrigger += 1
-                                    }
-                                }
+                        PlanCard(
+                            plan: .yearly,
+                            isSelected: selectedPlan == .yearly,
+                            isHighlighted: true,
+                            displayPrice: dynamicPrice(for: .yearly),
+                            dailyEquivalent: dailyPrice(for: .yearly),
+                            onSelect: { select(.yearly) }
+                        )
+
+                        HStack(spacing: 10) {
+                            CompactPlanCard(
+                                plan: .monthly,
+                                isSelected: selectedPlan == .monthly,
+                                displayPrice: dynamicPrice(for: .monthly),
+                                onSelect: { select(.monthly) }
+                            )
+                            CompactPlanCard(
+                                plan: .weekly,
+                                isSelected: selectedPlan == .weekly,
+                                displayPrice: dynamicPrice(for: .weekly),
+                                onSelect: { select(.weekly) }
                             )
                         }
                     }
@@ -476,9 +117,7 @@ struct PaywallPricingSubscreen: View {
             }
             .opacity(appeared ? 1 : 0)
 
-            Spacer().frame(height: 8)
-
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 if storeViewModel.isLoading && !storeViewModel.hasPackages {
                     ProgressView()
                         .tint(NafsTheme.gold)
@@ -486,120 +125,123 @@ struct PaywallPricingSubscreen: View {
                         .frame(maxWidth: .infinity)
                 } else {
                     NafsButton(
-                        title: selectedPlan.hasTrial ? NafsStrings.startFreeTrial.localized : NafsStrings.subscribeNow.localized,
-                        arabicSubtitle: selectedPlan.hasTrial ? "\u{0628}\u{0633}\u{0645} \u{0627}\u{0644}\u{0644}\u{0647}" : nil,
+                        title: "Start Free Trial",
                         isLoading: storeViewModel.isPurchasing
                     ) {
-                        guard !storeViewModel.isPurchasing else { return }
-                        Task {
-                            var package = packageForPlan(selectedPlan)
-                            if package == nil {
-                                await storeViewModel.fetchOfferings()
-                                try? await Task.sleep(for: .seconds(1))
-                                package = packageForPlan(selectedPlan)
-                            }
-                            if package == nil {
-                                await storeViewModel.fetchOfferings()
-                                try? await Task.sleep(for: .seconds(2))
-                                package = packageForPlan(selectedPlan)
-                            }
-                            guard let package else {
-                                purchaseError = L10n.text("Unable to load subscriptions from the App Store. Please check your internet connection, close the app completely, and try again.", "تعذر تحميل الاشتراكات من المتجر. يرجى التحقق من اتصالك بالإنترنت وإعادة المحاولة.")
-                                return
-                            }
-                            let success = await storeViewModel.purchase(package: package)
-                            if success {
-                                await storeViewModel.checkStatus()
-                                onStartTrial()
-                            }
-                        }
+                        startPurchase()
                     }
                 }
 
-                Text(selectedPlan.hasTrial
-                     ? L10n.text(
-                        "7-day free trial, then \(dynamicPrice(for: .yearly))/year. Auto-renews unless canceled at least 24 hours before the end of the trial.",
-                        "تجربة مجانية ٧ أيام، ثم \(dynamicPrice(for: .yearly))/سنة. يتجدد تلقائياً ما لم يتم الإلغاء قبل ٢٤ ساعة من نهاية التجربة."
-                     )
-                     : NafsStrings.subscriptionTerms.localized)
-                    .font(.system(.caption2, weight: .medium))
+                Text("Cancel anytime")
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NafsTheme.subtleText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 16) {
+                HStack(spacing: 14) {
+                    Button {
+                        Task {
+                            isRestoring = true
+                            let success = await storeViewModel.restore()
+                            isRestoring = false
+                            if success { vm.completeOnboarding() }
+                        }
+                    } label: {
+                        Text(isRestoring ? "Restoring…" : "Restore")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(NafsTheme.subtleText)
+                            .underline()
+                    }
+
+                    Text("·").font(.system(size: 11)).foregroundStyle(NafsTheme.subtleText.opacity(0.5))
+
                     Button {
                         if let url = URL(string: PaywallConstants.privacyPolicyURL) {
                             UIApplication.shared.open(url)
                         }
                     } label: {
-                        Text(NafsStrings.privacyPolicy.localized)
-                            .font(.system(.caption2, weight: .medium))
+                        Text("Privacy")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
                             .underline()
                     }
 
-                    Text("·")
-                        .font(.system(.caption2))
-                        .foregroundStyle(NafsTheme.subtleText.opacity(0.5))
+                    Text("·").font(.system(size: 11)).foregroundStyle(NafsTheme.subtleText.opacity(0.5))
 
                     Button {
                         if let url = URL(string: PaywallConstants.termsOfUseURL) {
                             UIApplication.shared.open(url)
                         }
                     } label: {
-                        Text(NafsStrings.termsOfUse.localized)
-                            .font(.system(.caption2, weight: .medium))
+                        Text("Terms")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
-                            .underline()
-                    }
-
-                    Text("·")
-                        .font(.system(.caption2))
-                        .foregroundStyle(NafsTheme.subtleText.opacity(0.5))
-
-                    Button {
-                        Task {
-                            isRestoring = true
-                            let success = await storeViewModel.restore()
-                            isRestoring = false
-                            if success {
-                                onStartTrial()
-                            }
-                        }
-                    } label: {
-                        Text(isRestoring ? NafsStrings.restoringText.localized : NafsStrings.restorePurchases.localized)
-                            .font(.system(.caption2, weight: .medium))
-                            .foregroundStyle(NafsTheme.gold)
                             .underline()
                     }
                 }
 
                 Button {
-                    onFreePlan()
+                    vm.completeOnboarding()
                 } label: {
-                    Text(NafsStrings.continueFreePlan.localized)
-                        .font(.system(.footnote, weight: .medium))
+                    Text("Continue with free plan")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(NafsTheme.subtleText)
                         .underline()
                 }
+                .padding(.top, 2)
             }
             .padding(.horizontal, 24)
-            .alert("Error", isPresented: .init(
-                get: { storeViewModel.error != nil || purchaseError != nil },
-                set: { if !$0 { storeViewModel.error = nil; purchaseError = nil } }
-            )) {
-                Button("OK") { storeViewModel.error = nil; purchaseError = nil }
-            } message: {
-                Text(purchaseError ?? storeViewModel.error ?? "")
-            }
-
-            Spacer().frame(height: 20)
+            .padding(.top, 12)
+            .padding(.bottom, 24)
+            .opacity(appeared ? 1 : 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(NafsTheme.background)
         .sensoryFeedback(.selection, trigger: hapticTrigger)
+        .sensoryFeedback(.success, trigger: purchaseTrigger)
+        .alert("Error", isPresented: .init(
+            get: { storeViewModel.error != nil || purchaseError != nil },
+            set: { if !$0 { storeViewModel.error = nil; purchaseError = nil } }
+        )) {
+            Button("OK") { storeViewModel.error = nil; purchaseError = nil }
+        } message: {
+            Text(purchaseError ?? storeViewModel.error ?? "")
+        }
         .onAppear {
             withAnimation(.spring(response: 0.5).delay(0.1)) {
                 appeared = true
+            }
+        }
+    }
+
+    private func select(_ plan: SubscriptionPlan) {
+        withAnimation(.spring(response: 0.3)) {
+            selectedPlan = plan
+            hapticTrigger += 1
+        }
+    }
+
+    private func startPurchase() {
+        guard !storeViewModel.isPurchasing else { return }
+        Task {
+            var package = packageForPlan(selectedPlan)
+            if package == nil {
+                await storeViewModel.fetchOfferings()
+                try? await Task.sleep(for: .seconds(1))
+                package = packageForPlan(selectedPlan)
+            }
+            if package == nil {
+                await storeViewModel.fetchOfferings()
+                try? await Task.sleep(for: .seconds(2))
+                package = packageForPlan(selectedPlan)
+            }
+            guard let package else {
+                purchaseError = "Unable to load subscriptions from the App Store. Please check your connection and try again."
+                return
+            }
+            let success = await storeViewModel.purchase(package: package)
+            if success {
+                purchaseTrigger += 1
+                await storeViewModel.checkStatus()
+                vm.completeOnboarding()
             }
         }
     }
@@ -629,34 +271,30 @@ struct PaywallPricingSubscreen: View {
             }
         }()
         let priceDecimal: Decimal
-        let formatter: NumberFormatter
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 2
         if let product = pkg?.storeProduct {
             priceDecimal = product.price
-            formatter = NumberFormatter()
-            formatter.numberStyle = .currency
             formatter.currencyCode = product.currencyCode ?? "USD"
-            formatter.maximumFractionDigits = 2
-            formatter.minimumFractionDigits = 2
         } else {
             priceDecimal = 39.99
-            formatter = NumberFormatter()
-            formatter.numberStyle = .currency
             formatter.currencyCode = "USD"
-            formatter.maximumFractionDigits = 2
-            formatter.minimumFractionDigits = 2
         }
         let divisor: Decimal = plan == .yearly ? 365 : (plan == .monthly ? 30 : 7)
         let perDay = priceDecimal / divisor
         let rounded = NSDecimalNumber(decimal: perDay).doubleValue
         let bumped = (ceil(rounded * 100) / 100)
         let display = formatter.string(from: NSNumber(value: bumped)) ?? "$0.11"
-        return L10n.text("Less than \(display)/day", "أقل من \(display)/يوم")
+        return "Less than \(display)/day"
     }
 }
 
 private struct PlanCard: View {
     let plan: SubscriptionPlan
     let isSelected: Bool
+    var isHighlighted: Bool = false
     var displayPrice: String = ""
     var dailyEquivalent: String? = nil
     let onSelect: () -> Void
@@ -669,20 +307,19 @@ private struct PlanCard: View {
                     .frame(width: 22, height: 22)
                     .overlay {
                         if isSelected {
-                            Circle()
-                                .fill(NafsTheme.gold)
-                                .frame(width: 12, height: 12)
+                            Circle().fill(NafsTheme.gold).frame(width: 12, height: 12)
                         }
                     }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(plan.title)
-                            .font(.system(.body, weight: .semibold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(NafsTheme.text)
-                        if plan == .yearly {
-                            Text(L10n.text("Best Value", "أفضل قيمة"))
-                                .font(.system(size: 10, weight: .bold))
+                        if isHighlighted {
+                            Text("BEST VALUE")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(1)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
@@ -690,14 +327,14 @@ private struct PlanCard: View {
                                 .clipShape(.capsule)
                         }
                     }
-                    if let daily = dailyEquivalent {
-                        Text(daily)
-                            .font(.system(.caption, weight: .semibold))
+                    if plan.hasTrial {
+                        Text("7-day free trial")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(NafsTheme.gold)
                     }
-                    if plan.hasTrial {
-                        Text(NafsStrings.sevenDayTrial.localized)
-                            .font(.system(.caption2, weight: .medium))
+                    if let daily = dailyEquivalent {
+                        Text(daily)
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(NafsTheme.subtleText)
                     }
                 }
@@ -706,20 +343,53 @@ private struct PlanCard: View {
 
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(displayPrice.isEmpty ? plan.price : displayPrice)
-                        .font(.system(.headline, weight: .bold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(isSelected ? NafsTheme.gold : NafsTheme.text)
                     Text(plan.period)
-                        .font(.system(.caption2))
+                        .font(.system(size: 11))
                         .foregroundStyle(NafsTheme.subtleText)
                 }
             }
             .padding(16)
-            .background(isSelected ? NafsTheme.gold.opacity(0.08) : NafsTheme.card)
+            .background(isSelected ? NafsTheme.gold.opacity(0.08) : Color.white)
             .clipShape(.rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(isSelected ? NafsTheme.gold : NafsTheme.cardBorder, lineWidth: isSelected ? 2 : 1)
             )
         }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct CompactPlanCard: View {
+    let plan: SubscriptionPlan
+    let isSelected: Bool
+    var displayPrice: String = ""
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 4) {
+                Text(plan.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(NafsTheme.subtleText)
+                Text(displayPrice.isEmpty ? plan.price : displayPrice)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(isSelected ? NafsTheme.gold : NafsTheme.text)
+                Text(plan.period)
+                    .font(.system(size: 10))
+                    .foregroundStyle(NafsTheme.subtleText.opacity(0.8))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(isSelected ? NafsTheme.gold.opacity(0.08) : Color.white)
+            .clipShape(.rect(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(isSelected ? NafsTheme.gold : NafsTheme.cardBorder, lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
