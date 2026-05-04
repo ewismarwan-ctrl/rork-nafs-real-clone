@@ -1,4 +1,6 @@
 import SwiftUI
+import AVFoundation
+import UIKit
 
 // MARK: - Shared Building Blocks
 
@@ -353,7 +355,7 @@ struct OBPhoneMockupView: View {
                     .opacity(appeared ? 1 : 0)
 
                     EmptyPhoneMockup()
-                        .frame(width: 230, height: 470)
+                        .frame(width: 230, height: 480)
                         .opacity(appeared ? 1 : 0)
                         .scaleEffect(appeared ? 1 : 0.92)
 
@@ -399,20 +401,52 @@ private struct EmptyPhoneMockup: View {
                 )
                 .shadow(color: .black.opacity(0.2), radius: 28, y: 14)
 
-            // Empty screen — placeholder for video
-            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                .fill(Color(hex: "F2EFE8"))
+            // Looping demo video — fills the phone screen
+            LoopingVideoPlayer(resourceName: "onboarding_lock", ext: "mov")
                 .padding(8)
-
-            // Dynamic island indicator
-            VStack {
-                Capsule()
-                    .fill(Color.black)
-                    .frame(width: 90, height: 28)
-                    .padding(.top, 18)
-                Spacer()
-            }
+                .clipShape(.rect(cornerRadius: 36, style: .continuous))
+                .allowsHitTesting(false)
         }
+    }
+}
+
+private struct LoopingVideoPlayer: UIViewRepresentable {
+    let resourceName: String
+    let ext: String
+
+    func makeUIView(context: Context) -> LoopingVideoUIView {
+        let view = LoopingVideoUIView()
+        if let url = Bundle.main.url(forResource: resourceName, withExtension: ext) {
+            view.configure(with: url)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: LoopingVideoUIView, context: Context) {}
+}
+
+final class LoopingVideoUIView: UIView {
+    private var player: AVQueuePlayer?
+    private var looper: AVPlayerLooper?
+
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+
+    func configure(with url: URL) {
+        let item = AVPlayerItem(url: url)
+        let queue = AVQueuePlayer(playerItem: item)
+        queue.isMuted = true
+        queue.actionAtItemEnd = .advance
+        looper = AVPlayerLooper(player: queue, templateItem: item)
+        player = queue
+        playerLayer.player = queue
+        playerLayer.videoGravity = .resizeAspectFill
+        queue.play()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { player?.play() }
     }
 }
 
