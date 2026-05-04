@@ -3,24 +3,18 @@ import Foundation
 nonisolated enum OnboardingScreen: Int, CaseIterable {
     case splash = 0
     case languageSelection
-    case hook
-    case insight1
-    case deenAreas
-    case salahRelationship
-    case insight2
-    case quranRelationship
-    case knowledgeAreas
-    case insight3
-    case phoneEffect
-    case spiritualChallenge
-    case excitingFeatures
-    case strictness
-    case name
-    case location
-    case personalized
-    case loading
-    case score
-    case ratingPrompt
+    case problem
+    case ahaMoment
+    case distractionPick
+    case reflection
+    case reframe
+    case solution
+    case microCommitment
+    case automation
+    case liveDemo
+    case reward
+    case progressBuild
+    case identityShift
     case paywall
 }
 

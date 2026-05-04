@@ -77,11 +77,14 @@ struct PaywallFeaturesSubscreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
-                    Text(NafsStrings.paywallReady.localized)
-                        .font(.system(.title3, weight: .bold))
-                        .foregroundStyle(NafsTheme.text)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(spacing: 10) {
+                        OnboardingHeadline(black: "Stop delaying", gold: "Salah")
+                        OnboardingSubtext(lines: [
+                            "You've already set everything up.",
+                            "Let Nafs handle the rest."
+                        ])
+                    }
+                    .padding(.top, 4)
 
                     VStack(spacing: 8) {
                         ForEach(vm.personalizedOutcomes, id: \.self) { outcome in

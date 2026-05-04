@@ -25,6 +25,10 @@ class OnboardingViewModel {
     var loadingProgress: Double = 0
     var loadingTextIndex: Int = 0
 
+    // Redesigned onboarding state
+    var selectedDistraction: String = ""
+    var blockedDistractions: Set<String> = []
+
     var totalScreens: Int { OnboardingScreen.allCases.count }
 
     var progress: Double {
@@ -33,34 +37,18 @@ class OnboardingViewModel {
 
     var canProceed: Bool {
         switch currentScreen {
-        case .splash, .languageSelection, .hook, .insight1, .insight2, .insight3, .personalized, .loading, .score, .ratingPrompt, .paywall:
-            return true
-        case .deenAreas:
-            return !selectedDeenAreas.isEmpty
-        case .salahRelationship:
-            return !selectedSalahRelationship.isEmpty
-        case .quranRelationship:
-            return !selectedQuranRelationship.isEmpty
-        case .knowledgeAreas:
-            return !selectedKnowledgeAreas.isEmpty
-        case .phoneEffect:
-            return !selectedPhoneEffect.isEmpty
-        case .spiritualChallenge:
-            return !selectedSpiritualChallenge.isEmpty
-        case .excitingFeatures:
-            return !selectedExcitingFeatures.isEmpty
-        case .strictness:
-            return !selectedStrictness.isEmpty
-        case .name:
-            return !userName.trimmingCharacters(in: .whitespaces).isEmpty
-        case .location:
+        case .distractionPick:
+            return !selectedDistraction.isEmpty
+        case .microCommitment:
+            return !blockedDistractions.isEmpty
+        default:
             return true
         }
     }
 
     var requiresAnswer: Bool {
         switch currentScreen {
-        case .deenAreas, .salahRelationship, .quranRelationship, .knowledgeAreas, .phoneEffect, .spiritualChallenge, .excitingFeatures, .strictness, .name:
+        case .distractionPick, .microCommitment:
             return !canProceed
         default:
             return false
@@ -68,11 +56,11 @@ class OnboardingViewModel {
     }
 
     var showBackButton: Bool {
-        currentScreen.rawValue > 1
+        currentScreen.rawValue > 2
     }
 
     var showProgressBar: Bool {
-        currentScreen != .splash && currentScreen != .languageSelection && currentScreen != .loading
+        currentScreen != .splash && currentScreen != .languageSelection && currentScreen != .paywall
     }
 
     var nafsScore: Int {
@@ -218,6 +206,21 @@ class OnboardingViewModel {
             selectedExcitingFeatures.remove(id)
         } else {
             selectedExcitingFeatures.insert(id)
+        }
+    }
+
+    func selectDistraction(_ id: String) {
+        selectedDistraction = id
+        if !id.isEmpty {
+            blockedDistractions.insert(id)
+        }
+    }
+
+    func toggleBlockedDistraction(_ id: String) {
+        if blockedDistractions.contains(id) {
+            blockedDistractions.remove(id)
+        } else {
+            blockedDistractions.insert(id)
         }
     }
 
