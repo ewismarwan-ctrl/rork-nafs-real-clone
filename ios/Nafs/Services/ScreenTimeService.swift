@@ -231,6 +231,30 @@ class ScreenTimeService {
         defaults.bool(forKey: prayerCompletionKey(for: prayer, on: date))
     }
 
+    func completedPrayersToday() -> Int {
+        let today = Date.now
+        return PrayerName.allCases.reduce(0) { acc, prayer in
+            acc + (isPrayerCompleted(prayer, on: today) ? 1 : 0)
+        }
+    }
+
+    func currentStreakDays() -> Int {
+        let cal = Calendar.current
+        var streak = 0
+        var day = Date.now
+        for _ in 0..<365 {
+            let allDone = PrayerName.allCases.allSatisfy { isPrayerCompleted($0, on: day) }
+            if allDone {
+                streak += 1
+                guard let prev = cal.date(byAdding: .day, value: -1, to: day) else { break }
+                day = prev
+            } else {
+                break
+            }
+        }
+        return streak
+    }
+
     private func markPrayerCompleted(_ prayer: PrayerName, on date: Date) {
         defaults.set(true, forKey: prayerCompletionKey(for: prayer, on: date))
     }

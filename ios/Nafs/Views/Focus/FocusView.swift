@@ -18,6 +18,10 @@ struct FocusView: View {
     @State private var showFirstPrayerRating: Bool = false
     @State private var feedbackText: String = ""
     @State private var showFeedbackSheet: Bool = false
+    @State private var showPrayerSuccess: Bool = false
+    @State private var lastCompletedPrayer: PrayerName? = nil
+    @State private var lastCompletedCount: Int = 0
+    @State private var lastCompletedStreak: Int = 0
 
     @Environment(LanguageManager.self) private var lang
 
@@ -105,6 +109,17 @@ struct FocusView: View {
                 )
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(isPresented: $showPrayerSuccess) {
+                if let prayer = lastCompletedPrayer {
+                    PrayerSuccessView(
+                        prayer: prayer,
+                        completedCount: lastCompletedCount,
+                        totalCount: PrayerName.allCases.count,
+                        streak: lastCompletedStreak,
+                        onContinue: { showPrayerSuccess = false }
+                    )
+                }
             }
             .sheet(isPresented: $showFeedbackSheet) {
                 FeedbackSheet(text: $feedbackText) {
@@ -367,8 +382,15 @@ struct FocusView: View {
                     titleVisibility: .visible
                 ) {
                     Button(L10n.text("Yes, I’ve prayed", "نعم، لقد صليت")) {
+                        let prayerJustDone = screenTimeService.activePrayerLock
                         screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
                         unlockSuccess.toggle()
+                        if let prayerJustDone {
+                            lastCompletedPrayer = prayerJustDone
+                            lastCompletedCount = screenTimeService.completedPrayersToday()
+                            lastCompletedStreak = screenTimeService.currentStreakDays()
+                            showPrayerSuccess = true
+                        }
                         triggerFirstPrayerRatingIfNeeded()
                     }
                     Button(L10n.text("Not yet", "ليس بعد"), role: .cancel) {}
