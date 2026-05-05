@@ -355,7 +355,7 @@ struct OBPhoneMockupView: View {
                     .opacity(appeared ? 1 : 0)
 
                     EmptyPhoneMockup()
-                        .frame(width: 230, height: 480)
+                        .frame(width: 240, height: 240 * 1040.0 / 480.0)
                         .opacity(appeared ? 1 : 0)
                         .scaleEffect(appeared ? 1 : 0.92)
 
@@ -385,21 +385,15 @@ struct OBPhoneMockupView: View {
 
 private struct EmptyPhoneMockup: View {
     var body: some View {
-        ZStack {
-            // Phone outer frame
-            RoundedRectangle(cornerRadius: 44, style: .continuous)
-                .fill(Color(hex: "0E0E10"))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 44, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.2), radius: 28, y: 14)
-
-            // Demo video — plays once, user can replay
-            PlayOnceVideoPlayer(resourceName: "onboarding_lock", ext: "mov")
-                .padding(8)
-                .clipShape(.rect(cornerRadius: 36, style: .continuous))
-        }
+        // Phone bezel + screen, clipped together so nothing bleeds outside the mockup.
+        PlayOnceVideoPlayer(resourceName: "onboarding_lock", ext: "mov")
+            .background(Color(hex: "0E0E10"))
+            .clipShape(.rect(cornerRadius: 40, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 40, style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.85), lineWidth: 4)
+            )
+            .shadow(color: .black.opacity(0.2), radius: 28, y: 14)
     }
 }
 
@@ -428,13 +422,16 @@ final class PlayOnceVideoUIView: UIView {
     private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
 
     func configure(with url: URL) {
+        clipsToBounds = true
+        layer.masksToBounds = true
+        backgroundColor = UIColor(red: 0x0E/255, green: 0x0E/255, blue: 0x10/255, alpha: 1)
         let item = AVPlayerItem(url: url)
         let p = AVPlayer(playerItem: item)
         p.isMuted = true
         p.actionAtItemEnd = .pause
         player = p
         playerLayer.player = p
-        playerLayer.videoGravity = .resizeAspectFill
+        playerLayer.videoGravity = .resizeAspect
 
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,

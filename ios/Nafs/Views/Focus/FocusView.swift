@@ -143,11 +143,9 @@ struct FocusView: View {
         }
         .onChange(of: prayerLockEnabled) { _, newValue in
             UserDefaults.standard.set(newValue, forKey: prayerLockKey)
+            screenTimeService.setPrayerLockEnabled(newValue)
             if newValue {
                 screenTimeService.evaluatePrayerLock(prayerTimes: viewModel.prayerTimes, focusMode: .auto)
-            } else {
-                screenTimeService.activePrayerLock = nil
-                screenTimeService.removeShields()
             }
         }
     }
@@ -683,6 +681,7 @@ struct FocusView: View {
             prayerLockEnabled = UserDefaults.standard.bool(forKey: prayerLockKey)
         }
         UserDefaults.standard.set("auto", forKey: "nafs_focusMode_v2")
+        screenTimeService.setPrayerLockEnabled(prayerLockEnabled)
     }
 }
 

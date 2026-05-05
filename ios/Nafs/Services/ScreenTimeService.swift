@@ -18,6 +18,13 @@ class ScreenTimeService {
     private let defaults: UserDefaults = .standard
     private let appGroupID: String = "group.app.rork.4lq2ucv31aityltnkks3n.nafs"
     private var sharedDefaults: UserDefaults? { UserDefaults(suiteName: appGroupID) }
+    private let prayerLockEnabledKey: String = "nafs_prayerLockEnabled_v1"
+
+    /// Master switch — when off, no prayer-driven shields are ever applied.
+    var prayerLockEnabled: Bool {
+        if defaults.object(forKey: prayerLockEnabledKey) == nil { return true }
+        return defaults.bool(forKey: prayerLockEnabledKey)
+    }
 
     var selectedAppCount: Int {
         activitySelection.applicationTokens.count
@@ -58,6 +65,10 @@ class ScreenTimeService {
         saveSelection()
         syncSelectionToAppGroup()
         guard isAuthorized else { return }
+        guard prayerLockEnabled else {
+            removeShields()
+            return
+        }
         if activePrayerLock != nil && !isUnlocked {
             applyShields()
             return
@@ -129,6 +140,15 @@ class ScreenTimeService {
 
     func evaluatePrayerLock(prayerTimes: [PrayerTime], focusMode: FocusMode?) {
         guard isAuthorized, hasSelection else { return }
+
+        guard prayerLockEnabled else {
+            activePrayerLock = nil
+            lastLockedPrayerAt = nil
+            defaults.removeObject(forKey: "nafs_prayerActiveLock")
+            defaults.removeObject(forKey: "nafs_prayerActiveLockDate")
+            removeShields()
+            return
+        }
 
         if let expiry = unlockExpiresAt, expiry <= .now {
             isUnlocked = false
@@ -298,6 +318,15 @@ class ScreenTimeService {
             }
         }
 
+        guard prayerLockEnabled else {
+            activePrayerLock = nil
+            lastLockedPrayerAt = nil
+            defaults.removeObject(forKey: "nafs_prayerActiveLock")
+            defaults.removeObject(forKey: "nafs_prayerActiveLockDate")
+            removeShields()
+            return
+        }
+
         if activePrayerLock != nil, hasSelection, isAuthorized {
             applyShields()
             return
@@ -307,6 +336,19 @@ class ScreenTimeService {
         if savedMode == "earn", hasSelection, isAuthorized {
             applyShields()
         }
+    }
+
+    /// Persist the prayer-lock master switch and immediately reflect it in shields.
+    func setPrayerLockEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: prayerLockEnabledKey)
+        if enabled { return }
+        activePrayerLock = nil
+        lastLockedPrayerAt = nil
+        defaults.removeObject(forKey: "nafs_prayerActiveLock")
+        defaults.removeObject(forKey: "nafs_prayerActiveLockDate")
+        sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLock")
+        sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLockDate")
+        removeShields()
     }
 
     private func scheduleRelock(at date: Date) {

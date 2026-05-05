@@ -28,6 +28,13 @@ nonisolated enum PrayerCompletionStore {
         defaults.set(true, forKey: key(for: prayer, on: date))
     }
 
+    /// Clears today's completion for a given prayer. Used when the user adjusts
+    /// the prayer's scheduled time so the blocker can re-evaluate against the
+    /// new time.
+    static func resetCompletion(_ prayer: PrayerName, on date: Date = .now) {
+        defaults.removeObject(forKey: key(for: prayer, on: date))
+    }
+
     static func completedCount(on date: Date = .now) -> Int {
         PrayerName.allCases.reduce(0) { acc, prayer in
             acc + (isCompleted(prayer, on: date) ? 1 : 0)

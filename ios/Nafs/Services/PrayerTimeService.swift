@@ -41,9 +41,34 @@ class PrayerTimeService {
            let raw = try? JSONDecoder().decode([String: Int].self, from: data) {
             current = raw
         }
+        let previous = current[prayer.rawValue] ?? 0
         current[prayer.rawValue] = minutes
         if let data = try? JSONEncoder().encode(current) {
             defaults.set(data, forKey: offsetsKey)
+        }
+
+        guard previous != minutes else { return }
+
+        // Adjusting the prayer time invalidates today's completion for that
+        // prayer — the blocker should reactivate against the new time.
+        PrayerCompletionStore.resetCompletion(prayer, on: .now)
+
+        // Mirror the reset into the App Group so widgets / extensions see it.
+        if let shared = UserDefaults(suiteName: "group.app.rork.4lq2ucv31aityltnkks3n.nafs") {
+            let f = DateFormatter()
+            f.calendar = Calendar(identifier: .gregorian)
+            f.timeZone = TimeZone.current
+            f.dateFormat = "yyyy-MM-dd"
+            let key = "nafs_prayerCompleted_\(prayer.rawValue)_\(f.string(from: Date()))"
+            shared.removeObject(forKey: key)
+        }
+
+        // Clear any persisted active lock for this prayer so the engine can
+        // reactivate once the new time is reached.
+        let activeKey = "nafs_prayerActiveLock"
+        if defaults.string(forKey: activeKey) == prayer.rawValue {
+            defaults.removeObject(forKey: activeKey)
+            defaults.removeObject(forKey: "nafs_prayerActiveLockDate")
         }
     }
 
