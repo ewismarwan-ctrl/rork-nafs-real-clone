@@ -341,6 +341,7 @@ class ScreenTimeService {
     /// Persist the prayer-lock master switch and immediately reflect it in shields.
     func setPrayerLockEnabled(_ enabled: Bool) {
         defaults.set(enabled, forKey: prayerLockEnabledKey)
+        sharedDefaults?.set(enabled, forKey: prayerLockEnabledKey)
         if enabled { return }
         activePrayerLock = nil
         lastLockedPrayerAt = nil
@@ -349,6 +350,9 @@ class ScreenTimeService {
         sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLock")
         sharedDefaults?.removeObject(forKey: "nafs_prayerActiveLockDate")
         removeShields()
+        // Cancel every pre-scheduled DeviceActivity window so the extension
+        // doesn't reapply shields while the app is closed.
+        PrayerActivityScheduler.shared.stopAll()
     }
 
     private func scheduleRelock(at date: Date) {

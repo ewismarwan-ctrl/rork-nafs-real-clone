@@ -12,10 +12,33 @@ class NotificationService {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
-    func schedulePrayerNotifications(prayerTimes: [PrayerTime], enabledPrayers: [PrayerName: Bool], cityName: String = "") {
+    func schedulePrayerNotifications(
+        prayerTimes: [PrayerTime],
+        upcomingDays: [[(name: String, time: Date)]] = [],
+        enabledPrayers: [PrayerName: Bool],
+        cityName: String = ""
+    ) {
         if !cityName.isEmpty {
             locationName = cityName
         }
+
+        // Flatten all upcoming prayer occurrences across the next N days so a
+        // single notification id (`prayer_<name>_<yyyy-MM-dd>`) maps to one
+        // future fire. This avoids stale notifications hanging around when
+        // the user adjusts methods/location.
+        let upcoming: [(name: PrayerName, time: Date)] = {
+            if upcomingDays.isEmpty {
+                return prayerTimes.map { (name: $0.name, time: $0.time) }
+            }
+            var out: [(name: PrayerName, time: Date)] = []
+            for day in upcomingDays {
+                for entry in day {
+                    guard let p = PrayerName(rawValue: entry.name) else { continue }
+                    out.append((name: p, time: entry.time))
+                }
+            }
+            return out
+        }()
 
         let center = UNUserNotificationCenter.current()
         center.getPendingNotificationRequests { requests in
@@ -26,33 +49,37 @@ class NotificationService {
                 let now = Date.now
                 let timeFormatter = DateFormatter()
                 timeFormatter.dateFormat = "h:mm a"
+                let dayFormatter = DateFormatter()
+                dayFormatter.calendar = Calendar(identifier: .gregorian)
+                dayFormatter.timeZone = TimeZone.current
+                dayFormatter.dateFormat = "yyyy-MM-dd"
 
-                for prayer in prayerTimes {
-                    guard enabledPrayers[prayer.name] ?? true else { continue }
-                    guard prayer.time > now else { continue }
+                for entry in upcoming {
+                    guard enabledPrayers[entry.name] ?? true else { continue }
+                    guard entry.time > now else { continue }
 
-                    let prayerDisplayName = NafsStrings.prayerName(prayer.name)
-                    let timeString = timeFormatter.string(from: prayer.time)
+                    let prayerDisplayName = NafsStrings.prayerName(entry.name)
+                    let timeString = timeFormatter.string(from: entry.time)
+                    let dayKey = dayFormatter.string(from: entry.time)
                     let city = self.locationName
 
                     let content = UNMutableNotificationContent()
                     content.title = prayerDisplayName
-
                     if city.isEmpty {
                         content.body = "\(prayerDisplayName) Time \(timeString)"
                     } else {
-                        content.body = self.prayerNotificationBody(for: prayer.name, city: city, time: timeString)
+                        content.body = self.prayerNotificationBody(for: entry.name, city: city, time: timeString)
                     }
-
                     content.sound = .default
                     content.interruptionLevel = .timeSensitive
 
-                    let interval = prayer.time.timeIntervalSince(now)
-                    guard interval > 0 else { continue }
-
-                    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+                    let comps = Calendar.current.dateComponents(
+                        [.year, .month, .day, .hour, .minute, .second],
+                        from: entry.time
+                    )
+                    let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
                     let request = UNNotificationRequest(
-                        identifier: "prayer_\(prayer.name.rawValue)",
+                        identifier: "prayer_\(entry.name.rawValue)_\(dayKey)",
                         content: content,
                         trigger: trigger
                     )
@@ -64,16 +91,21 @@ class NotificationService {
                     dhikrContent.sound = .default
                     dhikrContent.interruptionLevel = .timeSensitive
 
-                    let dhikrInterval = interval + (5 * 60)
-                    let dhikrTrigger = UNTimeIntervalNotificationTrigger(timeInterval: dhikrInterval, repeats: false)
+                    let dhikrFire = entry.time.addingTimeInterval(5 * 60)
+                    let dhikrComps = Calendar.current.dateComponents(
+                        [.year, .month, .day, .hour, .minute, .second],
+                        from: dhikrFire
+                    )
+                    let dhikrTrigger = UNCalendarNotificationTrigger(dateMatching: dhikrComps, repeats: false)
                     let dhikrRequest = UNNotificationRequest(
-                        identifier: "dhikr_\(prayer.name.rawValue)",
+                        identifier: "dhikr_\(entry.name.rawValue)_\(dayKey)",
                         content: dhikrContent,
                         trigger: dhikrTrigger
                     )
                     center.add(dhikrRequest)
                 }
 
+                print("[Nafs.Notifications] scheduled \(upcoming.count) upcoming prayer notifications")
                 self.scheduleTomorrowRefresh()
             }
         }

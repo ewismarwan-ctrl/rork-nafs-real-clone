@@ -63,6 +63,13 @@ struct FocusView: View {
                     set: { newValue in
                         screenTimeService.activitySelection = newValue
                         screenTimeService.onSelectionChanged()
+                        // Reseed DeviceActivity schedules so the new selection
+                        // is shielded at every upcoming prayer window even
+                        // while the app is closed.
+                        PrayerActivityScheduler.shared.updateSchedule(
+                            prayerTimes: viewModel.prayerTimes
+                        )
+                        Task { await viewModel.refreshPrayerTimes() }
                     }
                 )
             )

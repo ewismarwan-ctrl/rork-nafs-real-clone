@@ -148,25 +148,35 @@ class AppViewModel {
         if forceRecompute { prayerService.invalidateCache() }
         await prayerService.fetchPrayerTimes(method: calculationMethod, madhab: asrMadhab)
         prayerTimes = prayerService.prayerTimes
+
+        // Pre-compute the next 7 days up-front. This data is shared with both
+        // the widgets *and* the DeviceActivity scheduler so prayer-lock windows
+        // can be registered ahead of time — that's what lets iOS activate
+        // blocking even when Nafs is fully closed.
+        var multiDay: [[(name: String, time: Date)]] = []
+        if prayerService.hasRealLocationData {
+            multiDay = await prayerService.computeUpcomingDays(
+                method: calculationMethod,
+                madhab: asrMadhab,
+                days: 7
+            )
+        }
+
         NotificationService.shared.schedulePrayerNotifications(
             prayerTimes: prayerTimes,
+            upcomingDays: multiDay,
             enabledPrayers: prayerNotifications,
             cityName: prayerService.locationName
         )
-        PrayerActivityScheduler.shared.updateSchedule(prayerTimes: prayerTimes)
-        // Only push real, location-based prayer times to widgets.
-        // Otherwise the widget would display stale/fallback hours that
-        // don't match the user's device or location.
+        PrayerActivityScheduler.shared.updateSchedule(
+            prayerTimes: prayerTimes,
+            upcomingDays: multiDay
+        )
+
         if prayerService.hasRealLocationData {
             SharedDataService.syncPrayerTimes(
                 prayerTimes.map { (name: $0.name.rawValue, time: $0.time) },
                 locationName: prayerService.locationName
-            )
-            // Pre-compute next 7 days so widgets stay accurate even when the app isn't opened.
-            let multiDay = await prayerService.computeUpcomingDays(
-                method: calculationMethod,
-                madhab: asrMadhab,
-                days: 7
             )
             SharedDataService.syncMultiDayPrayerTimes(multiDay)
         }
