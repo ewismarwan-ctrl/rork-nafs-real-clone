@@ -37,6 +37,9 @@ struct SettingsView: View {
                 legalSection
                 supportSection
                 aboutSection
+                if DevToolsService.isAvailable {
+                    developerSection
+                }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
@@ -384,6 +387,35 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } header: {
             Text(lang.isArabic ? "الدعم" : "Support")
+        }
+    }
+
+    private var developerSection: some View {
+        Section {
+            NavigationLink {
+                DevToolsView(viewModel: viewModel)
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(NafsTheme.gold.opacity(0.12))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "hammer.fill")
+                            .font(.system(.caption, weight: .semibold))
+                            .foregroundStyle(NafsTheme.gold)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Developer Tools")
+                            .font(.system(.body, weight: .medium))
+                            .foregroundStyle(NafsTheme.text)
+                        Text("For testing and marketing capture only")
+                            .font(.system(.caption))
+                            .foregroundStyle(NafsTheme.subtleText)
+                    }
+                }
+            }
+        } header: {
+            Text("Internal · \(DevToolsService.buildKind)")
         }
     }
 
