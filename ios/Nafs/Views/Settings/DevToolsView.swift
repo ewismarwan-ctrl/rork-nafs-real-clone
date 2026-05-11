@@ -7,13 +7,16 @@ struct DevToolsView: View {
 
     @State private var screenTimeService = ScreenTimeService()
     @State private var manualLocked: Bool = DevToolsService.isManualLockActive
-    @State private var prayerProgress: Double = Double(PrayerCompletionStore.completedCount(on: .now))
-    @State private var streakValue: Double = Double(PrayerCompletionStore.currentStreakDays())
+    @State private var prayerProgress: Double = 0
+    @State private var streakValue: Double = 0
     @State private var showSuccessDemo: Bool = false
     @State private var demoPrayer: PrayerName = .maghrib
     @State private var widgetStreak: Double = 4
     @State private var widgetCompleted: Double = 3
     @State private var lastAction: String? = nil
+    @State private var isBusy: Bool = false
+    /// Guards against re-entrant onChange firing when we reset the toggle.
+    @State private var suppressToggleSideEffects: Bool = false
 
     var body: some View {
         List {
@@ -30,6 +33,11 @@ struct DevToolsView: View {
         .background(NafsTheme.background.ignoresSafeArea())
         .navigationTitle("Developer Tools")
         .navigationBarTitleDisplayMode(.large)
+        .disabled(isBusy)
+        .onAppear {
+            prayerProgress = Double(PrayerCompletionStore.completedCount(on: .now))
+            streakValue = Double(PrayerCompletionStore.currentStreakDays())
+        }
         .fullScreenCover(isPresented: $showSuccessDemo) {
             PrayerSuccessView(
                 prayer: demoPrayer,
@@ -76,17 +84,7 @@ struct DevToolsView: View {
             }
             .tint(NafsTheme.gold)
             .onChange(of: manualLocked) { _, new in
-                if new {
-                    if !DevToolsService.manualLock(screenTimeService) {
-                        manualLocked = false
-                        flash("Authorize Screen Time and select apps first.")
-                    } else {
-                        flash("Apps locked manually")
-                    }
-                } else {
-                    DevToolsService.manualUnlock(screenTimeService)
-                    flash("Apps unlocked")
-                }
+                handleManualLockChange(new)
             }
 
             HStack {
@@ -154,8 +152,11 @@ struct DevToolsView: View {
                     step: 1,
                     onEditingChanged: { editing in
                         if !editing {
-                            DevToolsService.setPrayerProgressToday(count: Int(prayerProgress))
-                            flash("Today set to \(Int(prayerProgress))/\(PrayerName.allCases.count)")
+                            let target = Int(prayerProgress)
+                            runAsync { @MainActor in
+                                DevToolsService.setPrayerProgressToday(count: target)
+                                flash("Today set to \(target)/\(PrayerName.allCases.count)")
+                            }
                         }
                     }
                 )
@@ -178,9 +179,12 @@ struct DevToolsView: View {
                     step: 1,
                     onEditingChanged: { editing in
                         if !editing {
-                            DevToolsService.setStreakDays(Int(streakValue))
-                            prayerProgress = Double(PrayerCompletionStore.completedCount(on: .now))
-                            flash("Streak set to \(Int(streakValue)) days")
+                            let target = Int(streakValue)
+                            runAsync { @MainActor in
+                                DevToolsService.setStreakDays(target)
+                                prayerProgress = Double(PrayerCompletionStore.completedCount(on: .now))
+                                flash("Streak set to \(target) days")
+                            }
                         }
                     }
                 )
@@ -217,15 +221,21 @@ struct DevToolsView: View {
                 }
             }
             Button {
-                DevToolsService.setWidgetDemo(streak: Int(widgetStreak), completed: Int(widgetCompleted))
-                flash("Widgets updated with demo values")
+                let s = Int(widgetStreak)
+                let c = Int(widgetCompleted)
+                runAsync { @MainActor in
+                    DevToolsService.setWidgetDemo(streak: s, completed: c)
+                    flash("Widgets updated with demo values")
+                }
             } label: {
                 Label("Push Demo to Widgets", systemImage: "square.grid.2x2.fill")
                     .foregroundStyle(NafsTheme.gold)
             }
             Button {
-                DevToolsService.refreshWidgets()
-                flash("Widget timelines reloaded")
+                runAsync { @MainActor in
+                    DevToolsService.refreshWidgets()
+                    flash("Widget timelines reloaded")
+                }
             } label: {
                 Label("Refresh Widget Demo State", systemImage: "arrow.clockwise")
                     .foregroundStyle(NafsTheme.gold)
@@ -262,7 +272,10 @@ struct DevToolsView: View {
             }
             resetRow("Reset App Selection", icon: "app.badge") {
                 DevToolsService.resetAppSelection(screenTimeService)
+                suppressToggleSideEffects = true
                 manualLocked = false
+                // Re-enable side effects on next tick.
+                Task { @MainActor in suppressToggleSideEffects = false }
                 flash("App selection cleared")
             }
             resetRow("Reset Review Prompt State", icon: "star") {
@@ -291,6 +304,29 @@ struct DevToolsView: View {
 
     // MARK: - Helpers
 
+    private func handleManualLockChange(_ new: Bool) {
+        if suppressToggleSideEffects { return }
+        // Defer the actual work one tick so SwiftUI's binding commit is fully
+        // finished before we touch the (observable) screen-time service. This
+        // prevents the "modifying state during view update" runtime crash.
+        Task { @MainActor in
+            if new {
+                let ok = DevToolsService.manualLock(screenTimeService)
+                if !ok {
+                    suppressToggleSideEffects = true
+                    manualLocked = false
+                    Task { @MainActor in suppressToggleSideEffects = false }
+                    flash("Authorize Screen Time and select apps first.")
+                } else {
+                    flash("Apps locked manually")
+                }
+            } else {
+                DevToolsService.manualUnlock(screenTimeService)
+                flash("Apps unlocked")
+            }
+        }
+    }
+
     private func presetButton(label: String, prayer: PrayerName) -> some View {
         Button {
             demoPrayer = prayer
@@ -308,17 +344,23 @@ struct DevToolsView: View {
     }
 
     private func triggerPreset(_ prayer: PrayerName) {
-        DevToolsService.forceActivePrayer(prayer)
-        guard DevToolsService.manualLock(screenTimeService) else {
-            flash("Authorize Screen Time and select apps first.")
-            return
+        runAsync { @MainActor in
+            DevToolsService.forceActivePrayer(prayer)
+            guard DevToolsService.manualLock(screenTimeService) else {
+                flash("Authorize Screen Time and select apps first.")
+                return
+            }
+            suppressToggleSideEffects = true
+            manualLocked = true
+            Task { @MainActor in suppressToggleSideEffects = false }
+            flash("Locked for \(NafsStrings.prayerName(prayer))")
         }
-        manualLocked = true
-        flash("Locked for \(NafsStrings.prayerName(prayer))")
     }
 
     private func resetRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            runAsync { @MainActor in action() }
+        } label: {
             HStack {
                 Label(title, systemImage: icon)
                     .foregroundStyle(NafsTheme.text)
@@ -330,9 +372,21 @@ struct DevToolsView: View {
         }
     }
 
+    /// Run work on the next main-actor tick so it never re-enters SwiftUI's
+    /// view update. Also gates the UI behind `isBusy` so the user can't tap
+    /// twice while a long-running reset is mutating defaults.
+    private func runAsync(_ work: @MainActor @escaping () -> Void) {
+        guard !isBusy else { return }
+        isBusy = true
+        Task { @MainActor in
+            work()
+            isBusy = false
+        }
+    }
+
     private func flash(_ msg: String) {
         lastAction = msg
-        Task {
+        Task { @MainActor in
             try? await Task.sleep(for: .seconds(2.5))
             if lastAction == msg { lastAction = nil }
         }
