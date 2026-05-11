@@ -54,14 +54,7 @@ class QuranAudioPlayer {
         playGlobalAyah(ayah.id)
     }
 
-    private func activateAudioSessionIfNeeded() {
-        // Lazily activate the audio session right before playback. We avoid
-        // activating at app launch because that can crash on TestFlight.
-        try? AVAudioSession.sharedInstance().setActive(true, options: [])
-    }
-
     private func playGlobalAyah(_ globalNumber: Int) {
-        activateAudioSessionIfNeeded()
         isLoading = true
         isPlaying = false
         errorMessage = nil

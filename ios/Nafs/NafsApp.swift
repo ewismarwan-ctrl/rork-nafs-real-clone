@@ -9,44 +9,27 @@ struct NafsApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        Self.configureRevenueCat()
-
-        // Configure the audio session category only. Do NOT call
-        // setActive(true) here — activating at process launch races with
-        // the system audio session and crashes some TestFlight devices
-        // with OSStatus -50. We activate lazily when audio is first needed.
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
-    }
-
-    private static func configureRevenueCat() {
-        // Guard against empty API keys — Purchases.configure raises an
-        // uncatchable NSException when given an empty string, which is the
-        // most common TestFlight launch crash for us.
         Purchases.logLevel = .debug
-
         #if DEBUG
-        let key = Config.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY
+        Purchases.configure(withAPIKey: Config.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY)
         #else
-        let primary = Config.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
-        let key = primary.isEmpty ? Config.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY : primary
+        let apiKey = Config.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
+        if apiKey.isEmpty {
+            Purchases.configure(withAPIKey: Config.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY)
+        } else {
+            Purchases.configure(withAPIKey: apiKey)
+        }
         #endif
 
-        guard !key.isEmpty else {
-            print("[Nafs] RevenueCat API key missing — skipping configure to avoid launch crash.")
-            return
-        }
-        Purchases.configure(withAPIKey: key)
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+        try? AVAudioSession.sharedInstance().setActive(true)
+
+        NotificationService.shared.requestPermission()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .task {
-                    // Permission prompt is deferred until the scene is
-                    // attached. Calling it inside App.init() has crashed
-                    // on launch on some TestFlight devices.
-                    NotificationService.shared.requestPermission()
-                }
                 .onChange(of: scenePhase) { _, newPhase in
                     RatingService.shared.handleScenePhaseChange(newPhase)
                 }

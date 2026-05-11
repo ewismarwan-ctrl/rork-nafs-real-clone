@@ -8,22 +8,12 @@ import Foundation
 nonisolated enum PrayerCompletionStore {
     private static let defaults: UserDefaults = .standard
 
-    /// Single cached formatter. `DateFormatter` is thread-safe for reads of a
-    /// fixed format and is *extremely* expensive to allocate — building a new
-    /// one per key lookup (as the old code did) made `currentStreakDays()`
-    /// allocate ~1.8k formatters per call and turned every view body that
-    /// read the streak into a frame-time sink.
-    nonisolated(unsafe) private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.calendar = Calendar(identifier: .gregorian)
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
     private static func dayKey(for date: Date) -> String {
-        dayFormatter.string(from: date)
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 
     static func key(for prayer: PrayerName, on date: Date) -> String {
@@ -56,23 +46,18 @@ nonisolated enum PrayerCompletionStore {
     }
 
     /// Number of consecutive days (ending today) where every prayer was completed.
-    ///
-    /// Walks backwards day-by-day, short-circuiting on the first miss. With
-    /// the cached formatter this stays cheap even when called from view
-    /// bodies, but callers should still prefer caching the result in @State
-    /// where possible.
     static func currentStreakDays() -> Int {
         let cal = Calendar.current
         var streak = 0
         var day = Date.now
-        for i in 0..<365 {
+        for _ in 0..<365 {
             if allCompleted(on: day) {
                 streak += 1
                 guard let prev = cal.date(byAdding: .day, value: -1, to: day) else { break }
                 day = prev
             } else {
                 // Allow today to be in-progress without breaking streak
-                if i == 0 && cal.isDateInToday(day) {
+                if streak == 0 && cal.isDateInToday(day) {
                     guard let prev = cal.date(byAdding: .day, value: -1, to: day) else { break }
                     day = prev
                     continue
