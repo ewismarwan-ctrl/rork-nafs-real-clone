@@ -36,7 +36,6 @@ struct SettingsView: View {
                 accountSection
                 legalSection
                 supportSection
-                if DevToolsService.isAvailable { developerToolsSection }
                 aboutSection
             }
             .listStyle(.insetGrouped)
@@ -385,37 +384,6 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } header: {
             Text(lang.isArabic ? "الدعم" : "Support")
-        }
-    }
-
-    private var developerToolsSection: some View {
-        Section {
-            NavigationLink {
-                DeveloperToolsView(viewModel: viewModel)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "hammer.fill")
-                        .foregroundStyle(NafsTheme.gold)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Developer Tools")
-                            .font(.system(.body, weight: .medium))
-                            .foregroundStyle(NafsTheme.text)
-                        Text("For testing and marketing capture only")
-                            .font(.system(.caption))
-                            .foregroundStyle(NafsTheme.subtleText)
-                    }
-                    Spacer()
-                    Text(DevToolsService.buildLabel)
-                        .font(.system(.caption2, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(NafsTheme.goldGradient)
-                        .clipShape(.capsule)
-                }
-            }
-        } header: {
-            Text("Internal")
         }
     }
 

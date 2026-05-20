@@ -106,10 +106,8 @@ struct HomeDashboardView: View {
     }
 
     private func completePrayer(_ prayer: PrayerName) {
-        // Routes through ScreenTimeService so it also clears the active
-        // prayer lock + shields when the marked prayer matches — otherwise
-        // apps would stay locked after marking complete from Home.
-        ScreenTimeService.recordPrayerCompletion(prayer)
+        PrayerCompletionStore.markCompleted(prayer, on: .now)
+        SharedDataService.syncPrayerStreak()
         let count = PrayerCompletionStore.completedCount(on: .now)
         let streak = PrayerCompletionStore.currentStreakDays()
         lastCompletedPrayer = prayer

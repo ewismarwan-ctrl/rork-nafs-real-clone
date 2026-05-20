@@ -10,7 +10,6 @@ struct FocusView: View {
     @State private var showActivityPicker: Bool = false
     @State private var unlockSuccess: Bool = false
     @State private var tick: Int = 0
-    @State private var lastEvaluateTick: Int = -1
     @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State private var showResetConfirm: Bool = false
     @State private var showPremiumGate: Bool = false
@@ -79,11 +78,7 @@ struct FocusView: View {
                 if let expiry = screenTimeService.unlockExpiresAt, expiry <= .now {
                     screenTimeService.relockNow()
                 }
-                // evaluatePrayerLock writes to ManagedSettingsStore on activation
-                // changes, which is slow. Throttle it to every 15s; the 1s timer
-                // still drives the countdown UI smoothly.
-                if prayerLockEnabled, tick - lastEvaluateTick >= 15 {
-                    lastEvaluateTick = tick
+                if prayerLockEnabled {
                     screenTimeService.evaluatePrayerLock(prayerTimes: viewModel.prayerTimes, focusMode: .auto)
                 }
             }

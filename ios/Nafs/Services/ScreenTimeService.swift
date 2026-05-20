@@ -16,14 +16,6 @@ class ScreenTimeService {
 
     private let store: ManagedSettingsStore = ManagedSettingsStore(named: ManagedSettingsStore.Name("nafsPrayerLock"))
     private let defaults: UserDefaults = .standard
-
-    /// Tracks the last applied shield state so we can skip redundant
-    /// ManagedSettingsStore writes. Writing to the store is comparatively
-    /// expensive and was being called every Focus-screen tick, which made
-    /// lock/unlock feel slow.
-    private var lastAppliedAppTokens: Set<ApplicationToken>? = nil
-    private var lastAppliedCategoryTokens: Set<ActivityCategoryToken>? = nil
-    private var shieldsActive: Bool = false
     private let appGroupID: String = "group.app.rork.4lq2ucv31aityltnkks3n.nafs"
     private var sharedDefaults: UserDefaults? { UserDefaults(suiteName: appGroupID) }
     private let prayerLockEnabledKey: String = "nafs_prayerLockEnabled_v1"
@@ -102,35 +94,17 @@ class ScreenTimeService {
     func applyShields() {
         let appTokens = activitySelection.applicationTokens
         let catTokens = activitySelection.categoryTokens
-        // Skip the ManagedSettings write if nothing changed — repeated writes
-        // here are the main cause of the laggy lock/unlock UX.
-        if shieldsActive,
-           lastAppliedAppTokens == appTokens,
-           lastAppliedCategoryTokens == catTokens {
-            isUnlocked = false
-            unlockExpiresAt = nil
-            return
-        }
         store.shield.applications = appTokens.isEmpty ? nil : appTokens
         store.shield.applicationCategories = catTokens.isEmpty ? nil : .specific(catTokens)
-        lastAppliedAppTokens = appTokens
-        lastAppliedCategoryTokens = catTokens
-        shieldsActive = true
         isUnlocked = false
         unlockExpiresAt = nil
         defaults.removeObject(forKey: "nafs_fcUnlockExpiry")
     }
 
     func removeShields() {
-        if !shieldsActive && lastAppliedAppTokens == nil && lastAppliedCategoryTokens == nil {
-            return
-        }
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
-        lastAppliedAppTokens = nil
-        lastAppliedCategoryTokens = nil
-        shieldsActive = false
     }
 
     func temporaryUnlock(minutes: Int) {
@@ -215,15 +189,12 @@ class ScreenTimeService {
         let now: Date = .now
         let sortedPrayers = prayerTimes.sorted { $0.time < $1.time }
 
-        // Only the *current* prayer window can trigger a lock. A prayer that
-        // was missed and is now in the past (i.e. a later prayer has already
-        // started) must not retroactively re-lock — otherwise marking the
-        // current prayer complete would immediately re-shield for an older
-        // missed prayer, which is what made apps appear to "lock again".
-        let currentWindowPrayer = sortedPrayers.last(where: { $0.time <= now })
-        if let currentWindowPrayer,
-           !isPrayerCompleted(currentWindowPrayer.name, on: currentWindowPrayer.time) {
-            activatePrayerLock(currentWindowPrayer.name, at: currentWindowPrayer.time)
+        let currentPrayer = sortedPrayers.last(where: { prayer in
+            now >= prayer.time && !isPrayerCompleted(prayer.name, on: prayer.time)
+        })
+
+        if let currentPrayer {
+            activatePrayerLock(currentPrayer.name, at: currentPrayer.time)
         } else {
             removeShields()
         }
@@ -382,37 +353,6 @@ class ScreenTimeService {
         // Cancel every pre-scheduled DeviceActivity window so the extension
         // doesn't reapply shields while the app is closed.
         PrayerActivityScheduler.shared.stopAll()
-    }
-
-    /// Convenience entry-point used by surfaces (e.g. Home) that don't hold a
-    /// long-lived `ScreenTimeService` instance. Persists completion to both
-    /// standard defaults *and* the app group, and — if the just-completed
-    /// prayer matches the currently active lock — removes the shield so apps
-    /// don't stay locked after the user marks the prayer complete from Home.
-    static func recordPrayerCompletion(_ prayer: PrayerName) {
-        PrayerCompletionStore.markCompleted(prayer, on: .now)
-        SharedDataService.syncPrayerStreak()
-
-        let appGroupID = "group.app.rork.4lq2ucv31aityltnkks3n.nafs"
-        let shared = UserDefaults(suiteName: appGroupID)
-        let f = DateFormatter()
-        f.calendar = Calendar(identifier: .gregorian)
-        f.timeZone = TimeZone.current
-        f.dateFormat = "yyyy-MM-dd"
-        shared?.set(true, forKey: "nafs_prayerCompleted_\(prayer.rawValue)_\(f.string(from: Date()))")
-
-        let standard = UserDefaults.standard
-        let active = standard.string(forKey: "nafs_prayerActiveLock")
-        if active == prayer.rawValue {
-            standard.removeObject(forKey: "nafs_prayerActiveLock")
-            standard.removeObject(forKey: "nafs_prayerActiveLockDate")
-            shared?.removeObject(forKey: "nafs_prayerActiveLock")
-            shared?.removeObject(forKey: "nafs_prayerActiveLockDate")
-            let store = ManagedSettingsStore(named: ManagedSettingsStore.Name("nafsPrayerLock"))
-            store.shield.applications = nil
-            store.shield.applicationCategories = nil
-            store.shield.webDomains = nil
-        }
     }
 
     private func scheduleRelock(at date: Date) {
