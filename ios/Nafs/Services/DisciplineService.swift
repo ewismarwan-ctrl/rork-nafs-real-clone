@@ -11,10 +11,11 @@ final class DisciplineService {
     private let creditsDateKey = "nafs_dopamineCredits_date_v1"
     private let creditsEarnedKey = "nafs_dopamineCredits_earned_v1"
     private let creditsSpentKey = "nafs_dopamineCredits_spent_v1"
+    private let creditsLifetimeKey = "nafs_dopamineCredits_lifetime_v1"
 
     var events: [DisciplineEvent] = []
     var damageEvents: [DisciplineDamageEvent] = []
-    var credits: DopamineCredits = DopamineCredits(dopamineCreditsMinutes: 0, earnedToday: 0, spentToday: 0)
+    var credits: DopamineCredits = DopamineCredits(dopamineCreditsMinutes: 0, earnedToday: 0, spentToday: 0, lifetimeEarned: 0)
     var lastEvent: DisciplineEvent?
     var lastDamageMessage: String?
 
@@ -76,6 +77,47 @@ final class DisciplineService {
         return events.filter { week.contains($0.date) }
     }
 
+    var earnedScreenTime: EarnedScreenTime {
+        rolloverCreditsIfNeeded()
+        return EarnedScreenTime(
+            availableMinutes: credits.currentAvailableMinutes,
+            earnedTodayMinutes: credits.earnedToday,
+            spentTodayMinutes: credits.spentToday,
+            lifetimeEarnedMinutes: credits.lifetimeEarned
+        )
+    }
+
+    func getAvailableMinutes() -> Int {
+        earnedScreenTime.availableMinutes
+    }
+
+    func getTodayEarnedMinutes() -> Int {
+        earnedScreenTime.earnedTodayMinutes
+    }
+
+    func getTodaySpentMinutes() -> Int {
+        earnedScreenTime.spentTodayMinutes
+    }
+
+    @discardableResult
+    func earnMinutes(action: DisciplineAction) -> DisciplineEvent? {
+        guard !action.isCompletedToday else { return nil }
+        let eventType: DisciplineActionType
+        switch action.type {
+        case .salah: eventType = .salahCompleted
+        case .quran: eventType = .quranReading
+        case .dhikr: eventType = .dhikrSession
+        case .reflection: eventType = .muhasabahReflection
+        case .focusSession: eventType = .focusSessionCompleted
+        }
+        return record(eventType, note: action.title, xpOverride: action.rewardXP, creditsOverride: action.rewardMinutes)
+    }
+
+    @discardableResult
+    func spendMinutes(_ minutes: Int) -> Bool {
+        spendCredits(minutes: minutes)
+    }
+
     @discardableResult
     func record(_ action: DisciplineActionType, note: String? = nil, xpOverride: Int? = nil, creditsOverride: Int? = nil) -> DisciplineEvent {
         rolloverCreditsIfNeeded()
@@ -84,6 +126,7 @@ final class DisciplineService {
         if event.dopamineCreditsMinutes > 0 {
             credits.dopamineCreditsMinutes += event.dopamineCreditsMinutes
             credits.earnedToday += event.dopamineCreditsMinutes
+            credits.lifetimeEarned += event.dopamineCreditsMinutes
             saveCredits()
         }
         lastEvent = event
@@ -133,7 +176,8 @@ final class DisciplineService {
         credits = DopamineCredits(
             dopamineCreditsMinutes: defaults.integer(forKey: creditsTotalKey),
             earnedToday: defaults.integer(forKey: creditsEarnedKey),
-            spentToday: defaults.integer(forKey: creditsSpentKey)
+            spentToday: defaults.integer(forKey: creditsSpentKey),
+            lifetimeEarned: defaults.integer(forKey: creditsLifetimeKey)
         )
     }
 
@@ -151,6 +195,7 @@ final class DisciplineService {
         defaults.set(credits.dopamineCreditsMinutes, forKey: creditsTotalKey)
         defaults.set(credits.earnedToday, forKey: creditsEarnedKey)
         defaults.set(credits.spentToday, forKey: creditsSpentKey)
+        defaults.set(credits.lifetimeEarned, forKey: creditsLifetimeKey)
         defaults.set(Self.dayKey(), forKey: creditsDateKey)
     }
 
@@ -174,9 +219,9 @@ final class DisciplineService {
 
 nonisolated enum DisciplineDamageService {
     static func calculateDailyScore(events: [DisciplineEvent], damageEvents: [DisciplineDamageEvent]) -> Int {
-        let xpScore = min(events.reduce(0) { $0 + $1.xp } / 2, 70)
+        let xpScore = min(events.reduce(0) { $0 + $1.xp } / 2, 76)
         let varietyScore = min(Set(events.map(\.action)).count * 6, 24)
-        let base = min(100, 20 + xpScore + varietyScore)
+        let base = min(100, xpScore + varietyScore)
         let penalty = min(35, damageEvents.reduce(0) { $0 + $1.scoreImpact })
         return max(0, base - penalty)
     }

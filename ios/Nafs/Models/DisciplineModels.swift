@@ -16,6 +16,46 @@ nonisolated enum DisciplineRank: String, CaseIterable, Codable, Sendable {
     }
 }
 
+nonisolated enum DisciplineActionKind: String, Codable, CaseIterable, Sendable, Identifiable {
+    case salah
+    case quran
+    case dhikr
+    case reflection
+    case focusSession
+
+    var id: String { rawValue }
+}
+
+nonisolated struct EarnedScreenTime: Codable, Sendable {
+    var availableMinutes: Int
+    var earnedTodayMinutes: Int
+    var spentTodayMinutes: Int
+    var lifetimeEarnedMinutes: Int
+}
+
+nonisolated struct DisciplineAction: Identifiable, Codable, Sendable {
+    let id: String
+    let type: DisciplineActionKind
+    var title: String
+    var rewardMinutes: Int
+    var rewardXP: Int
+    var completedAt: Date?
+
+    var isCompletedToday: Bool {
+        guard let completedAt else { return false }
+        return Calendar.current.isDateInToday(completedAt)
+    }
+
+    init(id: String, type: DisciplineActionKind, title: String, rewardMinutes: Int, rewardXP: Int, completedAt: Date? = nil) {
+        self.id = id
+        self.type = type
+        self.title = title
+        self.rewardMinutes = rewardMinutes
+        self.rewardXP = rewardXP
+        self.completedAt = completedAt
+    }
+}
+
 nonisolated enum DisciplineActionType: String, Codable, CaseIterable, Sendable, Identifiable {
     case prayerOnTime
     case salahCompleted
@@ -68,8 +108,8 @@ nonisolated enum DisciplineActionType: String, Codable, CaseIterable, Sendable, 
 
     var dopamineMinutes: Int {
         switch self {
-        case .prayerOnTime: return 15
-        case .salahCompleted: return 10
+        case .prayerOnTime: return 20
+        case .salahCompleted: return 20
         case .quranReading: return 10
         case .dhikrSession: return 5
         case .muhasabahReflection: return 5
@@ -102,6 +142,7 @@ nonisolated struct DopamineCredits: Codable, Sendable {
     var dopamineCreditsMinutes: Int
     var earnedToday: Int
     var spentToday: Int
+    var lifetimeEarned: Int = 0
 
     var currentAvailableMinutes: Int {
         max(0, dopamineCreditsMinutes)

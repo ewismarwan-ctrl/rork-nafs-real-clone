@@ -51,6 +51,27 @@ class AppViewModel {
     let discipline = DisciplineService()
     let disciplineCircles = DisciplineCircleService()
 
+    var earnedScreenTime: EarnedScreenTime { discipline.earnedScreenTime }
+
+    var todayDisciplineActions: [DisciplineAction] {
+        var actions: [DisciplineAction] = []
+        let nextSalah = nextPrayer ?? prayerTimes.sorted { $0.time < $1.time }.last
+        let salahTitle = nextSalah.map { "Pray \($0.name.rawValue)" } ?? "Pray Salah"
+        actions.append(DisciplineAction(
+            id: "salah_\(nextSalah?.name.rawValue ?? "daily")",
+            type: .salah,
+            title: salahTitle,
+            rewardMinutes: 20,
+            rewardXP: 50,
+            completedAt: completedDate(for: .salahCompleted)
+        ))
+        actions.append(DisciplineAction(id: "quran_daily", type: .quran, title: "Read Quran", rewardMinutes: 10, rewardXP: 30, completedAt: completedDate(for: .quranReading)))
+        actions.append(DisciplineAction(id: "dhikr_daily", type: .dhikr, title: "Dhikr", rewardMinutes: 5, rewardXP: 20, completedAt: completedDate(for: .dhikrSession)))
+        actions.append(DisciplineAction(id: "reflection_daily", type: .reflection, title: "Reflection", rewardMinutes: 5, rewardXP: 25, completedAt: completedDate(for: .muhasabahReflection)))
+        actions.append(DisciplineAction(id: "focus_daily", type: .focusSession, title: "Focus Session", rewardMinutes: 15, rewardXP: 45, completedAt: completedDate(for: .focusSessionCompleted)))
+        return actions
+    }
+
     var tasbihCount: Int = 0
     var showFreePlanBanner: Bool = false
     var freePlanTimer: Int = 0
@@ -226,6 +247,34 @@ class AppViewModel {
 
     private func awardFocusMinutes(for habit: HabitType) {
         focusEconomy.earn(baseMinutes: habit.screenTimeMinutes)
+    }
+
+    private func completedDate(for action: DisciplineActionType) -> Date? {
+        discipline.eventsToday.first(where: { $0.action == action })?.date
+    }
+
+    @discardableResult
+    func completeEarnAction(_ action: DisciplineAction) -> Bool {
+        if action.type == .salah {
+            guard let duePrayer = prayerTimes.sorted(by: { $0.time < $1.time }).last(where: { $0.time <= .now }) else { return false }
+            guard !PrayerCompletionStore.isCompleted(duePrayer.name, on: duePrayer.time) else { return false }
+            PrayerCompletionStore.markCompleted(duePrayer.name, on: duePrayer.time)
+            SharedDataService.syncPrayerStreak()
+            _ = discipline.earnMinutes(action: DisciplineAction(id: action.id, type: .salah, title: "Pray \(duePrayer.name.rawValue)", rewardMinutes: action.rewardMinutes, rewardXP: action.rewardXP))
+            if PrayerCompletionStore.allCompleted(on: .now) && !discipline.eventsToday.contains(where: { $0.note == "All 5 prayers bonus" }) {
+                _ = discipline.record(.salahCompleted, note: "All 5 prayers bonus", xpOverride: 0, creditsOverride: 30)
+            }
+            syncCircleStats()
+            return true
+        }
+        guard discipline.earnMinutes(action: action) != nil else { return false }
+        syncCircleStats()
+        return true
+    }
+
+    @discardableResult
+    func spendEarnedMinutes(_ minutes: Int) -> Bool {
+        discipline.spendMinutes(minutes)
     }
 
     @discardableResult
