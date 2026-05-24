@@ -2,6 +2,23 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
+private struct GoldParticle: Identifiable {
+    let id = UUID()
+    let offset: CGSize
+    let size: CGFloat
+    let blur: CGFloat
+    let opacity: Double
+
+    static let seed: [GoldParticle] = [
+        .init(offset: CGSize(width: -82, height: -22), size: 3.2, blur: 1.2, opacity: 0.5),
+        .init(offset: CGSize(width: 74, height: 18), size: 2.6, blur: 1.0, opacity: 0.42),
+        .init(offset: CGSize(width: -38, height: 74), size: 2.0, blur: 1.4, opacity: 0.36),
+        .init(offset: CGSize(width: 42, height: -76), size: 2.4, blur: 1.1, opacity: 0.4),
+        .init(offset: CGSize(width: 116, height: -38), size: 1.8, blur: 1.2, opacity: 0.28),
+        .init(offset: CGSize(width: -120, height: 40), size: 1.7, blur: 1.4, opacity: 0.26)
+    ]
+}
+
 struct NafsOpeningSplashView: View {
     let onFinished: () -> Void
 
@@ -336,23 +353,6 @@ private struct DopamineAppGlyph: View {
         }
         .accessibilityHidden(true)
     }
-}
-
-private struct GoldParticle: Identifiable {
-    let id = UUID()
-    let offset: CGSize
-    let size: CGFloat
-    let blur: CGFloat
-    let opacity: Double
-
-    static let seed: [GoldParticle] = [
-        .init(offset: CGSize(width: -82, height: -22), size: 3.2, blur: 1.2, opacity: 0.5),
-        .init(offset: CGSize(width: 74, height: 18), size: 2.6, blur: 1.0, opacity: 0.42),
-        .init(offset: CGSize(width: -38, height: 74), size: 2.0, blur: 1.4, opacity: 0.36),
-        .init(offset: CGSize(width: 42, height: -76), size: 2.4, blur: 1.1, opacity: 0.4),
-        .init(offset: CGSize(width: 116, height: -38), size: 1.8, blur: 1.2, opacity: 0.28),
-        .init(offset: CGSize(width: -120, height: 40), size: 1.7, blur: 1.4, opacity: 0.26)
-    ]
 }
 
 private struct LightStreak: Identifiable {
