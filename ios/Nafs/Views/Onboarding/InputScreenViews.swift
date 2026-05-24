@@ -16,19 +16,21 @@ struct NameScreenView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(NafsTheme.gold)
 
-                Text(NafsStrings.nameTitle.localized)
-                    .font(.system(.title2, weight: .bold))
+                Text("What should we call you?")
+                    .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(NafsTheme.text)
+                    .multilineTextAlignment(.center)
 
-                Text(NafsStrings.nameSubtitle.localized)
-                    .font(.system(.subheadline))
+                Text("Nafs will use your name to make the plan feel personal.")
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(NafsTheme.subtleText)
+                    .multilineTextAlignment(.center)
             }
             .opacity(appeared ? 1 : 0)
 
             Spacer().frame(height: 40)
 
-            TextField(NafsStrings.nameField.localized, text: Bindable(vm).userName)
+            TextField("Your name", text: Bindable(vm).userName)
                 .font(.system(.title3, weight: .medium))
                 .foregroundStyle(NafsTheme.text)
                 .multilineTextAlignment(.center)
@@ -52,8 +54,9 @@ struct NameScreenView: View {
 
             Spacer()
 
-            NafsButton(title: NafsStrings.continueBtn.localized, isEnabled: vm.canProceed) {
+            NafsButton(title: "Continue", isEnabled: vm.canProceed) {
                 isFocused = false
+                vm.persistAnswers()
                 vm.goNext()
             }
             .padding(.horizontal, 24)

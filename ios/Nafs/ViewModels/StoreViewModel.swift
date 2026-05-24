@@ -174,6 +174,15 @@ class StoreViewModel {
         return offerings?.current?.availablePackages.first { $0.packageType == .annual }
     }
 
+    var discountedYearlyPackage: Package? {
+        // TODO: Replace the identifier matching below with the exact RevenueCat
+        // one-time-offer product/package ID once the discounted annual product exists.
+        offerings?.current?.availablePackages.first {
+            let identifier = "\($0.identifier) \($0.storeProduct.productIdentifier)".lowercased()
+            return $0.packageType == .annual && (identifier.contains("discount") || identifier.contains("offer") || identifier.contains("70"))
+        }
+    }
+
     var hasPackages: Bool {
         weeklyPackage != nil || monthlyPackage != nil || yearlyPackage != nil
     }
