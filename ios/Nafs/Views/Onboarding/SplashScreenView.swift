@@ -57,7 +57,7 @@ struct SplashScreenView: View {
                             .frame(width: 56, height: 1)
                             .opacity(taglineAppeared ? 1 : 0)
 
-                        Text("DISCIPLINE YOUR NAFS")
+                        Text("STOP DELAYING SALAH")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(NafsTheme.text.opacity(0.65))
                             .tracking(5)
@@ -69,7 +69,7 @@ struct SplashScreenView: View {
 
                 Spacer(minLength: 24)
 
-                NafsButton(title: "Begin", arabicSubtitle: "\u{0628}\u{0633}\u{0645} \u{0627}\u{0644}\u{0644}\u{0647}") {
+                NafsButton(title: "Stop delaying Salah") {
                     vm.goNext()
                 }
                 .padding(.horizontal, 24)

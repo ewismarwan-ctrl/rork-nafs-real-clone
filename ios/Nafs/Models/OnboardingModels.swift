@@ -2,20 +2,47 @@ import Foundation
 
 nonisolated enum OnboardingScreen: Int, CaseIterable {
     case splash = 0
-    case languageSelection
-    case name           // What should we call you?
-    case problem        // Stop delaying / Salah
-    case discipline     // You don't lack / discipline
-    case oneScroll      // It starts with / one scroll
-    case notFault       // It's not your / fault
-    case system         // So we built a / system
-    case whenSalah      // When it's time for / Salah
-    case automation     // No reminders. / No willpower.
-    case appSelection   // Select apps to block
-    case phoneMockup    // Empty phone mockup placeholder
-    case location       // Enable accurate prayer times
-    case reward         // You pray → it unlocks
+    case problemHook
+    case emotionalPain
+    case solutionIntro
+    case lockExplainer
+    case name
+    case honestPersonalization
+    case ageRange
+    case phoneHours
+    case timeLoss
+    case salahConsistency
+    case salahRelationship
+    case mainStruggle
+    case deeperStruggle
+    case goals
+    case identity
+    case reassurance
+    case hope
+    case testimonials
+    case howItWorks
+    case appPreviewSelection
+    case appsLock
+    case pray
+    case tapPrayed
+    case appsUnlock
+    case companionIntro
+    case catName
+    case catProgression
+    case commitmentLevel
+    case positiveReinforcement
+    case covenant
+    case attribution
+    case appSelection
+    case prayerLockSetup
+    case screenTimePermission
+    case notificationPermission
+    case location
+    case roadmap
+    case finalReady
     case paywall
+    case trialReassurance
+    case completion
 }
 
 nonisolated struct SelectionOption: Identifiable, Hashable {

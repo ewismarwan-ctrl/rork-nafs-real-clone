@@ -83,18 +83,8 @@ struct MainTabView: View {
                         .safeAreaPadding(.bottom, isMiniBarVisible ? miniBarHeight : 0)
                 }
 
-                Tab(NafsStrings.tabQuran.value(for: languageManager.current), systemImage: "book.fill", value: .quran) {
-                    QuranListView(appViewModel: viewModel, storeViewModel: storeViewModel, audioPlayer: audioPlayer)
-                        .safeAreaPadding(.bottom, isMiniBarVisible ? miniBarHeight : 0)
-                }
-
                 Tab(NafsStrings.tabFocus.value(for: languageManager.current), systemImage: "shield.checkered", value: .focus) {
                     FocusView(viewModel: viewModel, storeViewModel: storeViewModel)
-                        .safeAreaPadding(.bottom, isMiniBarVisible ? miniBarHeight : 0)
-                }
-
-                Tab(NafsStrings.tabNafsAI.value(for: languageManager.current), systemImage: "brain.head.profile", value: .nafsAI) {
-                    NafsAIView(appViewModel: viewModel, storeViewModel: storeViewModel)
                         .safeAreaPadding(.bottom, isMiniBarVisible ? miniBarHeight : 0)
                 }
 
@@ -137,7 +127,7 @@ struct MainTabView: View {
 }
 
 enum AppTab: Hashable {
-    case home, quran, focus, nafsAI, more
+    case home, focus, more
 }
 
 struct MoreView: View {
@@ -152,21 +142,23 @@ struct MoreView: View {
         NavigationStack {
             List {
                 Section(NafsStrings.features.localized) {
-                    moreRow(icon: "checkmark.seal.fill", title: NafsStrings.logHabits.localized, subtitle: lang.isArabic ? "سجّل عباداتك اليومية" : "Log your daily worship habits", dest: .habits, premium: true)
+                    moreRow(icon: "book.fill", title: NafsStrings.tabQuran.localized, subtitle: "Read and listen to Quran", dest: .quran, premium: false)
                     moreRow(icon: "hands.sparkles.fill", title: NafsStrings.dhikr.localized, subtitle: lang.isArabic ? "عدّاد التسبيح للذكر اليومي" : "Tasbih counter for daily dhikr", dest: .dhikr, premium: false)
-                    moreRow(icon: "moon.stars", title: NafsStrings.muhasabah.localized, subtitle: lang.isArabic ? "محاسبة النفس اليومية" : "Daily self reflection", dest: .muhasabah, premium: true)
+                    moreRow(icon: "brain.head.profile", title: NafsStrings.tabNafsAI.localized, subtitle: "Ask Islamic questions", dest: .nafsAI, premium: true)
                     moreRow(icon: "map.fill", title: NafsStrings.guidedPlans.localized, subtitle: lang.isArabic ? "خطط للنمو الروحي" : "Structured spiritual growth", dest: .guidedPlans, premium: true)
-                    moreRow(icon: "paperplane.fill", title: NafsStrings.sendDua.localized, subtitle: lang.isArabic ? "شارك أدعية جميلة" : "Share beautiful du'as", dest: .sendDua, premium: true)
-                    moreRow(icon: "location.north.fill", title: NafsStrings.qiblaFinder.localized, subtitle: lang.isArabic ? "اعثر على اتجاه مكة" : "Find the direction of Mecca", dest: .qibla, premium: false)
+                    moreRow(icon: "rectangle.stack.badge.plus", title: "Widgets", subtitle: "Home and Lock Screen streak widgets", dest: .widgets, premium: false)
+                    moreRow(icon: "gearshape.fill", title: NafsStrings.settings.localized, subtitle: lang.isArabic ? "مواقيت الصلاة، الإشعارات" : "Prayer times, notifications", dest: .settings, premium: false)
+                    moreRow(icon: "crown.fill", title: "Subscription", subtitle: "Manage Nafs Premium", dest: .subscription, premium: false)
+                    moreRow(icon: "questionmark.circle.fill", title: "Support", subtitle: "Help, feedback, and contact", dest: .support, premium: false)
                 }
 
                 Section(NafsStrings.growth.localized) {
+                    moreRow(icon: "checkmark.seal.fill", title: NafsStrings.logHabits.localized, subtitle: lang.isArabic ? "سجّل عباداتك اليومية" : "Log your daily worship habits", dest: .habits, premium: true)
+                    moreRow(icon: "moon.stars", title: NafsStrings.muhasabah.localized, subtitle: lang.isArabic ? "محاسبة النفس اليومية" : "Daily self reflection", dest: .muhasabah, premium: true)
+                    moreRow(icon: "paperplane.fill", title: NafsStrings.sendDua.localized, subtitle: lang.isArabic ? "شارك أدعية جميلة" : "Share beautiful du'as", dest: .sendDua, premium: true)
+                    moreRow(icon: "location.north.fill", title: NafsStrings.qiblaFinder.localized, subtitle: lang.isArabic ? "اعثر على اتجاه مكة" : "Find the direction of Mecca", dest: .qibla, premium: false)
                     moreRow(icon: "leaf.fill", title: NafsStrings.gardenOfDeeds.localized, subtitle: lang.isArabic ? "شاهد حديقتك تنمو" : "Watch your garden grow", dest: .garden, premium: true)
                     moreRow(icon: "chart.bar.fill", title: NafsStrings.progress.localized, subtitle: lang.isArabic ? "الإحصائيات والسلاسل" : "Stats & streaks", dest: .progress, premium: true)
-                }
-
-                Section {
-                    moreRow(icon: "gearshape.fill", title: NafsStrings.settings.localized, subtitle: lang.isArabic ? "مواقيت الصلاة، الإشعارات" : "Prayer times, notifications", dest: .settings, premium: false)
                 }
             }
             .listStyle(.insetGrouped)
@@ -176,6 +168,16 @@ struct MoreView: View {
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: MoreDestination.self) { dest in
                 switch dest {
+                case .quran:
+                    QuranListView(appViewModel: viewModel, storeViewModel: storeViewModel, audioPlayer: QuranAudioPlayer())
+                case .nafsAI:
+                    NafsAIView(appViewModel: viewModel, storeViewModel: storeViewModel)
+                case .widgets:
+                    WidgetInfoView()
+                case .subscription:
+                    SubscriptionManagementView(storeViewModel: storeViewModel)
+                case .support:
+                    SupportInfoView()
                 case .dhikr:
                     DhikrView(viewModel: viewModel, storeViewModel: storeViewModel)
                 case .muhasabah:
@@ -275,5 +277,43 @@ struct MoreView: View {
 }
 
 enum MoreDestination: Hashable {
-    case habits, dhikr, muhasabah, guidedPlans, sendDua, qibla, garden, progress, settings
+    case quran, dhikr, nafsAI, guidedPlans, widgets, settings, subscription, support, habits, muhasabah, sendDua, qibla, garden, progress
+}
+
+private struct WidgetInfoView: View {
+    var body: some View {
+        List {
+            Section("Widgets") {
+                Text("Add Nafs widgets from your iPhone Home Screen or Lock Screen to see your prayer streak and today’s progress instantly.")
+                    .foregroundStyle(NafsTheme.text)
+            }
+        }
+        .navigationTitle("Widgets")
+        .scrollContentBackground(.hidden)
+        .background(NafsTheme.background)
+    }
+}
+
+private struct SubscriptionManagementView: View {
+    let storeViewModel: StoreViewModel
+    var body: some View {
+        UpgradePaywallSheet(storeViewModel: storeViewModel, feature: "Nafs Premium", benefit: "Manage or start your premium Prayer Lock plan.", onDismiss: {}, onSuccess: {})
+            .navigationTitle("Subscription")
+    }
+}
+
+private struct SupportInfoView: View {
+    var body: some View {
+        List {
+            Section("Support") {
+                Link("Privacy Policy", destination: URL(string: NafsConstants.privacyPolicyURL)!)
+                Link("Terms of Use", destination: URL(string: NafsConstants.termsOfUseURL)!)
+                Text("For help, feedback, or account questions, contact the Nafs support team through the App Store listing.")
+                    .foregroundStyle(NafsTheme.text)
+            }
+        }
+        .navigationTitle("Support")
+        .scrollContentBackground(.hidden)
+        .background(NafsTheme.background)
+    }
 }

@@ -63,10 +63,10 @@ struct PaywallScreenView: View {
                     Spacer().frame(height: 16)
 
                     VStack(spacing: 14) {
-                        OnboardingHeadline(black: "Stop delaying", gold: "Salah")
+                        OnboardingHeadline(black: "Your Prayer Lock", gold: "is ready")
                         OnboardingSubtext(lines: [
-                            "You've already seen how it works.",
-                            "Now let it run automatically for you."
+                            "Start with a 3-day free trial.",
+                            "No payment due now. Cancel anytime."
                         ])
                     }
 
@@ -125,18 +125,18 @@ struct PaywallScreenView: View {
                         .frame(maxWidth: .infinity)
                 } else {
                     NafsButton(
-                        title: "Start Free Trial",
+                        title: "Start my free trial",
                         isLoading: storeViewModel.isPurchasing
                     ) {
                         startPurchase()
                     }
                 }
 
-                Text("Less than a coffee per week")
+                Text("3-day free trial · no payment due now")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(NafsTheme.gold.opacity(0.85))
 
-                Text("Cancel anytime. No commitment during trial.")
+                Text("We’ll remind you before your trial ends. Cancel anytime.")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NafsTheme.subtleText)
                     .multilineTextAlignment(.center)
@@ -185,9 +185,9 @@ struct PaywallScreenView: View {
                 }
 
                 Button {
-                    vm.completeOnboarding()
+                    vm.goNext()
                 } label: {
-                    Text("Continue with free plan")
+                    Text("Not now")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(NafsTheme.subtleText)
                         .underline()
@@ -247,7 +247,7 @@ struct PaywallScreenView: View {
             if success {
                 purchaseTrigger += 1
                 await storeViewModel.checkStatus()
-                vm.completeOnboarding()
+                vm.goNext()
             }
         }
     }
@@ -334,7 +334,7 @@ private struct PlanCard: View {
                         }
                     }
                     if plan.hasTrial {
-                        Text("7-day free trial")
+                        Text("3-day free trial")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(NafsTheme.gold)
                     }

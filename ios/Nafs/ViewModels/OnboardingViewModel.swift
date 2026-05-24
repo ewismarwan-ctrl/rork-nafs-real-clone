@@ -24,7 +24,20 @@ class OnboardingViewModel {
     var loadingProgress: Double = 0
     var loadingTextIndex: Int = 0
 
-    // Redesigned onboarding state
+    // Premium Salah-discipline onboarding state
+    var ageRange: String = ""
+    var phoneHours: Double = 5
+    var salahConsistency: String = ""
+    var selectedGoals: Set<String> = []
+    var selectedStruggles: Set<String> = []
+    var deeperStruggle: String = ""
+    var disciplineIdentity: String = ""
+    var commitmentLevel: String = ""
+    var signature: String = ""
+    var catName: String = "Muezza"
+    var sourcePlatform: String = ""
+    var sourceDetail: String = ""
+    var referralCode: String = ""
     var blockedDistractions: Set<String> = []
 
     var totalScreens: Int { OnboardingScreen.allCases.count }
@@ -35,10 +48,32 @@ class OnboardingViewModel {
 
     var canProceed: Bool {
         switch currentScreen {
-        case .appSelection:
-            return !blockedDistractions.isEmpty
         case .name:
             return !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .ageRange:
+            return !ageRange.isEmpty
+        case .salahConsistency:
+            return !salahConsistency.isEmpty
+        case .salahRelationship:
+            return !selectedSalahRelationship.isEmpty
+        case .mainStruggle:
+            return !selectedStruggles.isEmpty
+        case .deeperStruggle:
+            return !deeperStruggle.isEmpty
+        case .goals:
+            return !selectedGoals.isEmpty
+        case .identity:
+            return !disciplineIdentity.isEmpty
+        case .catName:
+            return !catName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .commitmentLevel:
+            return !commitmentLevel.isEmpty
+        case .covenant:
+            return !signature.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .attribution:
+            return !sourcePlatform.isEmpty
+        case .appSelection, .appPreviewSelection:
+            return !blockedDistractions.isEmpty
         default:
             return true
         }
@@ -46,7 +81,7 @@ class OnboardingViewModel {
 
     var requiresAnswer: Bool {
         switch currentScreen {
-        case .appSelection, .name:
+        case .name, .ageRange, .salahConsistency, .salahRelationship, .mainStruggle, .deeperStruggle, .goals, .identity, .catName, .commitmentLevel, .covenant, .attribution, .appSelection, .appPreviewSelection:
             return !canProceed
         default:
             return false
@@ -54,11 +89,11 @@ class OnboardingViewModel {
     }
 
     var showBackButton: Bool {
-        currentScreen.rawValue > 2
+        currentScreen.rawValue > 0
     }
 
     var showProgressBar: Bool {
-        currentScreen != .splash && currentScreen != .languageSelection && currentScreen != .paywall
+        currentScreen != .splash && currentScreen != .paywall && currentScreen != .completion
     }
 
     var nafsScore: Int {
@@ -215,6 +250,49 @@ class OnboardingViewModel {
         }
     }
 
+    func toggleGoal(_ id: String) {
+        if selectedGoals.contains(id) { selectedGoals.remove(id) } else { selectedGoals.insert(id) }
+    }
+
+    func toggleStruggle(_ id: String) {
+        if selectedStruggles.contains(id) { selectedStruggles.remove(id) } else { selectedStruggles.insert(id) }
+    }
+
+    func yearlyHoursLost() -> Int {
+        Int((phoneHours * 365).rounded())
+    }
+
+    func catLevel() -> Int {
+        let streak = PrayerCompletionStore.currentStreakDays()
+        if streak >= 30 { return 5 }
+        if streak >= 14 { return 4 }
+        if streak >= 7 { return 3 }
+        if streak >= 3 { return 2 }
+        return 1
+    }
+
+    func persistOnboardingData() {
+        let defaults = UserDefaults.standard
+        defaults.set(displayName, forKey: "nafs_userName")
+        defaults.set(displayName, forKey: "nafs_firstName")
+        defaults.set(ageRange, forKey: "nafs_ageRange")
+        defaults.set(phoneHours, forKey: "nafs_phoneHours")
+        defaults.set(salahConsistency, forKey: "nafs_salahConsistency")
+        defaults.set(Array(selectedGoals), forKey: "nafs_selectedGoals")
+        defaults.set(Array(selectedStruggles), forKey: "nafs_selectedStruggles")
+        defaults.set(deeperStruggle, forKey: "nafs_deeperStruggle")
+        defaults.set(disciplineIdentity, forKey: "nafs_disciplineIdentity")
+        defaults.set(commitmentLevel, forKey: "nafs_commitmentLevel")
+        defaults.set(signature, forKey: "nafs_signature")
+        defaults.set(catName.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "nafs_catName")
+        defaults.set(catLevel(), forKey: "nafs_catLevel")
+        defaults.set(sourcePlatform, forKey: "nafs_sourcePlatform")
+        defaults.set(sourceDetail, forKey: "nafs_sourceDetail")
+        defaults.set(referralCode, forKey: "nafs_referralCode")
+        defaults.set(Array(blockedDistractions), forKey: "nafs_onboardingBlockedDistractions")
+        defaults.set(true, forKey: "nafs_onboardingCompleted")
+    }
+
     func startLoading() {
         loadingProgress = 0
         loadingTextIndex = 0
@@ -232,6 +310,7 @@ class OnboardingViewModel {
     }
 
     func completeOnboarding() {
+        persistOnboardingData()
         hasCompletedOnboarding = true
     }
 
