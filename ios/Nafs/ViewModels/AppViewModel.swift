@@ -48,29 +48,6 @@ class AppViewModel {
     var storeViewModel: StoreViewModel?
     let prayerService = PrayerTimeService()
     let focusEconomy = FocusEconomyService()
-    let discipline = DisciplineService()
-    let disciplineCircles = DisciplineCircleService()
-
-    var earnedScreenTime: EarnedScreenTime { discipline.earnedScreenTime }
-
-    var todayDisciplineActions: [DisciplineAction] {
-        var actions: [DisciplineAction] = []
-        let nextSalah = nextPrayer ?? prayerTimes.sorted { $0.time < $1.time }.last
-        let salahTitle = nextSalah.map { "Pray \($0.name.rawValue)" } ?? "Pray Salah"
-        actions.append(DisciplineAction(
-            id: "salah_\(nextSalah?.name.rawValue ?? "daily")",
-            type: .salah,
-            title: salahTitle,
-            rewardMinutes: 20,
-            rewardXP: 50,
-            completedAt: completedDate(for: .salahCompleted)
-        ))
-        actions.append(DisciplineAction(id: "quran_daily", type: .quran, title: "Read Quran", rewardMinutes: 10, rewardXP: 30, completedAt: completedDate(for: .quranReading)))
-        actions.append(DisciplineAction(id: "dhikr_daily", type: .dhikr, title: "Dhikr", rewardMinutes: 5, rewardXP: 20, completedAt: completedDate(for: .dhikrSession)))
-        actions.append(DisciplineAction(id: "reflection_daily", type: .reflection, title: "Reflection", rewardMinutes: 5, rewardXP: 25, completedAt: completedDate(for: .muhasabahReflection)))
-        actions.append(DisciplineAction(id: "focus_daily", type: .focusSession, title: "Focus Session", rewardMinutes: 15, rewardXP: 45, completedAt: completedDate(for: .focusSessionCompleted)))
-        return actions
-    }
 
     var tasbihCount: Int = 0
     var showFreePlanBanner: Bool = false
@@ -227,7 +204,7 @@ class AppViewModel {
     }
 
     func logHabit(_ habit: HabitType) -> Bool {
-        guard isPremium || habit.isFreeDisciplineHabit else {
+        guard isPremium else {
             _ = requirePremium(feature: "Habit Logging", benefit: "Your deeds deserve to be counted. Start your free trial.")
             return false
         }
@@ -240,7 +217,6 @@ class AppViewModel {
         updateStreak()
         updateHabitStreak(habit)
         awardFocusMinutes(for: habit)
-        recordDiscipline(for: habit)
 
         return true
     }
@@ -249,90 +225,8 @@ class AppViewModel {
         focusEconomy.earn(baseMinutes: habit.screenTimeMinutes)
     }
 
-    private func completedDate(for action: DisciplineActionType) -> Date? {
-        discipline.eventsToday.first(where: { $0.action == action })?.date
-    }
-
-    @discardableResult
-    func completeEarnAction(_ action: DisciplineAction) -> Bool {
-        if action.type == .salah {
-            guard let duePrayer = prayerTimes.sorted(by: { $0.time < $1.time }).last(where: { $0.time <= .now }) else { return false }
-            guard !PrayerCompletionStore.isCompleted(duePrayer.name, on: duePrayer.time) else { return false }
-            PrayerCompletionStore.markCompleted(duePrayer.name, on: duePrayer.time)
-            SharedDataService.syncPrayerStreak()
-            _ = discipline.earnMinutes(action: DisciplineAction(id: action.id, type: .salah, title: "Pray \(duePrayer.name.rawValue)", rewardMinutes: action.rewardMinutes, rewardXP: action.rewardXP))
-            if PrayerCompletionStore.allCompleted(on: .now) && !discipline.eventsToday.contains(where: { $0.note == "All 5 prayers bonus" }) {
-                _ = discipline.record(.salahCompleted, note: "All 5 prayers bonus", xpOverride: 0, creditsOverride: 30)
-            }
-            syncCircleStats()
-            return true
-        }
-        guard discipline.earnMinutes(action: action) != nil else { return false }
-        syncCircleStats()
-        return true
-    }
-
-    @discardableResult
-    func spendEarnedMinutes(_ minutes: Int) -> Bool {
-        discipline.spendMinutes(minutes)
-    }
-
-    @discardableResult
-    func recordDiscipline(_ action: DisciplineActionType, note: String? = nil) -> DisciplineEvent {
-        let event = discipline.record(action, note: note)
-        syncCircleStats()
-        return event
-    }
-
-    func recordFocusCompleted(minutes: Int) {
-        let event = discipline.record(.focusSessionCompleted, note: "\(minutes) minute Nafs Lock")
-        focusEconomy.earn(baseMinutes: event.dopamineCreditsMinutes)
-        syncCircleStats()
-    }
-
-    func recordLockInCompleted() {
-        let event = discipline.record(.lockInSessionCompleted)
-        focusEconomy.earn(baseMinutes: event.dopamineCreditsMinutes)
-        syncCircleStats()
-    }
-
-    func applyDisciplinePenalty(_ type: DisciplinePenaltyType) {
-        discipline.applyPenalty(type)
-        syncCircleStats()
-    }
-
-    private func recordDiscipline(for habit: HabitType) {
-        switch habit {
-        case .fardOnTime, .fajrOnTime:
-            recordDiscipline(.prayerOnTime, note: habit.rawValue)
-        case .fardLate:
-            recordDiscipline(.salahCompleted, note: habit.rawValue)
-        case .quran, .surahKahf:
-            recordDiscipline(.quranReading, note: habit.rawValue)
-        case .dhikr, .morningDhikr, .eveningDhikr, .istighfar, .salawat:
-            recordDiscipline(.dhikrSession, note: habit.rawValue)
-        case .journal:
-            recordDiscipline(.muhasabahReflection, note: habit.rawValue)
-        case .exercise, .sleepOnTime, .guidedPlanStep, .voluntaryFast, .prayInMasjid, .noPhoneBeforeFajr, .lowerGaze, .avoidSin, .dailyCharity, .dailyDua, .jumuah, .learningSession:
-            recordDiscipline(.customHabit, note: habit.rawValue)
-        }
-    }
-
-    func syncCircleStats() {
-        let salahConsistency = Int((prayerConsistency * 100).rounded())
-        let focusSessions = discipline.eventsThisWeek.filter { $0.action == .focusSessionCompleted || $0.action == .lockInSessionCompleted }.count
-        disciplineCircles.updateLocalMember(
-            weeklyXP: discipline.weeklyXP,
-            score: discipline.disciplineScore,
-            streak: max(streakDays, discipline.currentStreak),
-            focusSessions: focusSessions,
-            salahConsistency: salahConsistency,
-            name: userName
-        )
-    }
-
     func canLogHabit(_ habit: HabitType) -> Bool {
-        guard isPremium || habit.isFreeDisciplineHabit else { return true }
+        guard isPremium else { return true }
         return !todayLogs.contains(logKey(for: habit))
     }
 
@@ -569,3 +463,5 @@ class AppViewModel {
         }
     }
 }
+
+

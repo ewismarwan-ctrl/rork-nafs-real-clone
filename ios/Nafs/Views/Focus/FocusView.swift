@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import FamilyControls
 
 struct FocusView: View {
@@ -7,190 +8,676 @@ struct FocusView: View {
 
     @State private var screenTimeService: ScreenTimeService = ScreenTimeService()
     @State private var showActivityPicker: Bool = false
+    @State private var unlockSuccess: Bool = false
+    @State private var tick: Int = 0
+    @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State private var showResetConfirm: Bool = false
+    @State private var showPremiumGate: Bool = false
+    @State private var showPrayConfirm: Bool = false
     @State private var prayerLockEnabled: Bool = true
-    @State private var unlockMinutes: Int = 15
-    @State private var insufficientBalance: Bool = false
+    @State private var showFirstPrayerRating: Bool = false
+    @State private var feedbackText: String = ""
+    @State private var showFeedbackSheet: Bool = false
+    @State private var showPrayerSuccess: Bool = false
+    @State private var lastCompletedPrayer: PrayerName? = nil
+    @State private var lastCompletedCount: Int = 0
+    @State private var lastCompletedStreak: Int = 0
+
+    @Environment(LanguageManager.self) private var lang
 
     private let prayerLockKey: String = "nafs_prayerLockEnabled_v1"
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    hero
-                    lockStatus
-                    unlockRequirement
-                    controls
-                    selectedApps
-                    hardReset
-                    Spacer(minLength: 90)
+                VStack(spacing: 18) {
+                    if !viewModel.isPremium {
+                        premiumPreview
+                    } else if !screenTimeService.isAuthorized {
+                        authorizationSection
+                    } else if !screenTimeService.hasSelection {
+                        entryState
+                    } else {
+                        toggleCard
+                        if prayerLockEnabled {
+                            statusCard
+                            todayCard
+                            streakCard
+                        }
+                        appSelectionCard
+                        manageSection
+                    }
+
+                    Spacer(minLength: 100)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
+                .padding(.top, 12)
             }
             .background(NafsTheme.background.ignoresSafeArea())
-            .navigationTitle("Lock")
+            .navigationTitle(L10n.text("Focus", "التركيز"))
             .navigationBarTitleDisplayMode(.large)
-            .familyActivityPicker(isPresented: $showActivityPicker, selection: Binding(
-                get: { screenTimeService.activitySelection },
-                set: { selection in
-                    screenTimeService.activitySelection = selection
-                    screenTimeService.onSelectionChanged()
-                    PrayerActivityScheduler.shared.updateSchedule(prayerTimes: viewModel.prayerTimes)
+            .familyActivityPicker(
+                isPresented: $showActivityPicker,
+                selection: Binding(
+                    get: { screenTimeService.activitySelection },
+                    set: { newValue in
+                        screenTimeService.activitySelection = newValue
+                        screenTimeService.onSelectionChanged()
+                        // Reseed DeviceActivity schedules so the new selection
+                        // is shielded at every upcoming prayer window even
+                        // while the app is closed.
+                        PrayerActivityScheduler.shared.updateSchedule(
+                            prayerTimes: viewModel.prayerTimes
+                        )
+                        Task { await viewModel.refreshPrayerTimes() }
+                    }
+                )
+            )
+            .onReceive(timer) { _ in
+                tick += 1
+                if let expiry = screenTimeService.unlockExpiresAt, expiry <= .now {
+                    screenTimeService.relockNow()
                 }
-            ))
-            .alert("Not enough earned time", isPresented: $insufficientBalance) {
-                Button("Earn first", role: .cancel) {}
-            } message: {
-                Text("Complete Salah, Quran, Dhikr, Reflection, or a Focus Session before unlocking distractions.")
+                if prayerLockEnabled {
+                    screenTimeService.evaluatePrayerLock(prayerTimes: viewModel.prayerTimes, focusMode: .auto)
+                }
             }
-            .alert("Hard Reset", isPresented: $showResetConfirm) {
-                Button("Cancel", role: .cancel) {}
-                Button("Reset", role: .destructive) { screenTimeService.clearAll() }
+            .sensoryFeedback(.success, trigger: unlockSuccess)
+            .alert(L10n.text("Reset Focus", "إعادة تعيين التركيز"), isPresented: $showResetConfirm) {
+                Button(L10n.text("Cancel", "إلغاء"), role: .cancel) {}
+                Button(L10n.text("Reset", "إعادة"), role: .destructive) {
+                    screenTimeService.clearAll()
+                }
             } message: {
-                Text("This removes blocked apps and turns off active shields.")
+                Text(L10n.text("This removes all blocked apps and disables prayer lock.", "سيؤدي هذا إلى إزالة جميع التطبيقات المحجوبة وتعطيل قفل الصلاة."))
+            }
+            .sheet(isPresented: $showPremiumGate) {
+                UpgradePaywallSheet(
+                    storeViewModel: storeViewModel,
+                    feature: L10n.text("Focus", "التركيز"),
+                    benefit: L10n.text("Lock distracting apps during prayer times until you've prayed.", "اقفل التطبيقات المشتتة في أوقات الصلاة حتى تصلي."),
+                    onDismiss: { showPremiumGate = false },
+                    onSuccess: { showPremiumGate = false }
+                )
+            }
+            .sheet(isPresented: $showFirstPrayerRating) {
+                FirstPrayerRatingSheet(
+                    onYes: {
+                        showFirstPrayerRating = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            RatingService.shared.requestReview()
+                        }
+                    },
+                    onNotReally: {
+                        showFirstPrayerRating = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showFeedbackSheet = true
+                        }
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(isPresented: $showPrayerSuccess) {
+                if let prayer = lastCompletedPrayer {
+                    PrayerSuccessView(
+                        prayer: prayer,
+                        completedCount: lastCompletedCount,
+                        totalCount: PrayerName.allCases.count,
+                        streak: lastCompletedStreak,
+                        onContinue: { showPrayerSuccess = false }
+                    )
+                }
+            }
+            .sheet(isPresented: $showFeedbackSheet) {
+                FeedbackSheet(text: $feedbackText) {
+                    showFeedbackSheet = false
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
         }
-        .task { loadPrayerLockEnabled() }
-        .onChange(of: prayerLockEnabled) { _, enabled in
-            UserDefaults.standard.set(enabled, forKey: prayerLockKey)
-            screenTimeService.setPrayerLockEnabled(enabled)
-            if enabled { PrayerActivityScheduler.shared.updateSchedule(prayerTimes: viewModel.prayerTimes) }
+        .task {
+            loadPrayerLockEnabled()
+            if prayerLockEnabled {
+                screenTimeService.evaluatePrayerLock(prayerTimes: viewModel.prayerTimes, focusMode: .auto)
+            }
+        }
+        .onChange(of: viewModel.prayerTimes.map(\.id).joined(separator: "|")) { _, _ in
+            if prayerLockEnabled {
+                screenTimeService.evaluatePrayerLock(prayerTimes: viewModel.prayerTimes, focusMode: .auto)
+            }
+        }
+        .onChange(of: prayerLockEnabled) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: prayerLockKey)
+            screenTimeService.setPrayerLockEnabled(newValue)
+            if newValue {
+                screenTimeService.evaluatePrayerLock(prayerTimes: viewModel.prayerTimes, focusMode: .auto)
+            }
         }
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Earn your freedom.")
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(NafsTheme.text)
-            Text("Your apps unlock when you earn dopamine intentionally.")
-                .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(NafsTheme.subtleText)
-            Text("Worship first. Dopamine later.")
-                .font(.system(.headline, weight: .bold))
-                .foregroundStyle(NafsTheme.gold)
+    private func triggerFirstPrayerRatingIfNeeded() {
+        let defaults = UserDefaults.standard
+        let countKey = "nafs_prayerCompletionCount"
+        let promptedKey = "nafs_firstPrayerRatingShown"
+        let count = defaults.integer(forKey: countKey) + 1
+        defaults.set(count, forKey: countKey)
+        let alreadyPrompted = defaults.bool(forKey: promptedKey)
+        let alreadyRated = RatingService.shared.hasRated
+        guard count == 1, !alreadyPrompted, !alreadyRated else { return }
+        defaults.set(true, forKey: promptedKey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            showFirstPrayerRating = true
         }
-        .padding(24)
+    }
+
+    // MARK: - Authorization
+    private var authorizationSection: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(NafsTheme.gold.opacity(0.12))
+                    .frame(width: 72, height: 72)
+                Image(systemName: "shield.checkered")
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(NafsTheme.gold)
+            }
+
+            VStack(spacing: 6) {
+                Text(L10n.text("Enable App Blocking", "تفعيل حجب التطبيقات"))
+                    .font(.system(.title3, weight: .bold))
+                    .foregroundStyle(NafsTheme.text)
+                Text(L10n.text("Grant Screen Time access. Prayer lock cannot work without it.", "امنح صلاحية مدة الاستخدام. لا يعمل قفل الصلاة بدونها."))
+                    .font(.system(.subheadline))
+                    .foregroundStyle(NafsTheme.subtleText)
+                    .multilineTextAlignment(.center)
+            }
+
+            NafsButton(
+                title: L10n.text("Enable Screen Time Access", "تفعيل صلاحية مدة الاستخدام"),
+                isLoading: screenTimeService.isRequestingAuth
+            ) {
+                Task {
+                    await screenTimeService.requestAuthorization()
+                }
+            }
+        }
+        .padding(20)
         .background(NafsTheme.card)
-        .clipShape(.rect(cornerRadius: 26))
-        .overlay { RoundedRectangle(cornerRadius: 26).strokeBorder(NafsTheme.gold.opacity(0.25), lineWidth: 1) }
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
+        }
     }
 
-    private var lockStatus: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    // MARK: - Premium preview
+    private var premiumPreview: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(NafsTheme.gold.opacity(0.1))
+                        .frame(width: 88, height: 88)
+                    Image(systemName: "shield.checkered")
+                        .font(.system(size: 38, weight: .semibold))
+                        .foregroundStyle(NafsTheme.gold)
+                }
+
+                Text(L10n.text("Focus is part of Nafs Premium", "التركيز ضمن نفس بريميوم"))
+                    .font(.system(.title2, weight: .bold))
+                    .foregroundStyle(NafsTheme.text)
+                    .multilineTextAlignment(.center)
+
+                Text(L10n.text("Lock distracting apps during prayer times until you've prayed.", "اقفل التطبيقات المشتتة في أوقات الصلاة حتى تصلي."))
+                    .font(.system(.subheadline))
+                    .foregroundStyle(NafsTheme.subtleText)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 10) {
+                previewRow(icon: "moon.stars.fill", title: L10n.text("Locks at every prayer", "يقفل عند كل صلاة"), subtitle: L10n.text("Selected apps lock automatically at prayer times.", "تُقفل التطبيقات المحددة تلقائياً عند أوقات الصلاة."))
+                previewRow(icon: "checkmark.circle.fill", title: L10n.text("Unlocks after you pray", "يفتح بعد الصلاة"), subtitle: L10n.text("Mark prayer complete and your apps open back up.", "أكمل الصلاة لتفتح تطبيقاتك."))
+                previewRow(icon: "app.badge.checkmark", title: L10n.text("Pick your distractions", "اختر مشتتاتك"), subtitle: L10n.text("Choose exactly which apps and categories to block.", "اختر التطبيقات والفئات التي ستُحجب."))
+            }
+
+            NafsButton(title: L10n.text("Unlock Focus", "افتح التركيز")) {
+                showPremiumGate = true
+            }
+        }
+        .padding(22)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 22))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
+        }
+    }
+
+    private func previewRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(NafsTheme.gold.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Image(systemName: icon)
+                    .font(.system(.body, weight: .semibold))
+                    .foregroundStyle(NafsTheme.gold)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(NafsTheme.text)
+                Text(subtitle)
+                    .font(.system(.caption))
+                    .foregroundStyle(NafsTheme.subtleText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Entry
+    private var entryState: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(NafsTheme.gold.opacity(0.1))
+                        .frame(width: 88, height: 88)
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 38, weight: .semibold))
+                        .foregroundStyle(NafsTheme.gold)
+                }
+
+                Text(L10n.text("Lock apps during prayer", "اقفل التطبيقات أثناء الصلاة"))
+                    .font(.system(.title2, weight: .bold))
+                    .foregroundStyle(NafsTheme.text)
+                    .multilineTextAlignment(.center)
+
+                Text(L10n.text("Select the apps you keep wasting time on. Nafs will lock them at every prayer time.", "اختر التطبيقات التي تضيّع فيها وقتك. سيقفلها نفس عند كل صلاة."))
+                    .font(.system(.subheadline))
+                    .foregroundStyle(NafsTheme.subtleText)
+                    .multilineTextAlignment(.center)
+            }
+
+            NafsButton(title: L10n.text("Select Apps to Block", "اختر التطبيقات للحجب")) {
+                showActivityPicker = true
+            }
+        }
+        .padding(22)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 22))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
+        }
+    }
+
+    // MARK: - Toggle card
+    private var toggleCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
             Toggle(isOn: $prayerLockEnabled) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Prayer Blocking")
+                    Text(L10n.text("Enable Prayer Lock", "تفعيل قفل الصلاة"))
                         .font(.system(.headline, weight: .bold))
                         .foregroundStyle(NafsTheme.text)
-                    Text(prayerLockEnabled ? "Discipline earns freedom." : "Blocking is fully disabled.")
-                        .font(.system(.caption, weight: .medium))
+                    Text(L10n.text("Selected apps will be blocked during prayer times until you pray.", "ستُحجب التطبيقات المختارة في أوقات الصلاة حتى تصلي."))
+                        .font(.system(.caption))
                         .foregroundStyle(NafsTheme.subtleText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .tint(NafsTheme.gold)
-
-            HStack(spacing: 12) {
-                statusPill("Available", "\(viewModel.earnedScreenTime.availableMinutes)m")
-                statusPill("Locked Apps", "\(screenTimeService.selectedAppCount + screenTimeService.selectedCategoryCount)")
-            }
         }
         .padding(18)
         .background(NafsTheme.card)
         .clipShape(.rect(cornerRadius: 20))
-    }
-
-    private func statusPill(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value).font(.system(.title3, weight: .bold)).foregroundStyle(NafsTheme.gold)
-            Text(title).font(.system(.caption, weight: .semibold)).foregroundStyle(NafsTheme.subtleText)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(NafsTheme.background)
-        .clipShape(.rect(cornerRadius: 14))
     }
 
-    private var unlockRequirement: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Next Unlock Requirement")
-                .font(.system(.headline, weight: .bold))
-                .foregroundStyle(NafsTheme.text)
-            Text(viewModel.earnedScreenTime.availableMinutes >= unlockMinutes ? "Spend \(unlockMinutes) earned minutes intentionally." : "Complete Salah to unlock. Control your nafs before it controls you.")
-                .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(NafsTheme.subtleText)
-        }
-        .padding(18)
-        .background(NafsTheme.card)
-        .clipShape(.rect(cornerRadius: 20))
-    }
-
-    private var controls: some View {
-        VStack(spacing: 12) {
-            Picker("Minutes", selection: $unlockMinutes) {
-                Text("15 min").tag(15)
-                Text("30 min").tag(30)
-                Text("60 min").tag(60)
-            }
-            .pickerStyle(.segmented)
-
-            Button {
-                if viewModel.spendEarnedMinutes(unlockMinutes) {
-                    screenTimeService.temporaryUnlock(minutes: unlockMinutes)
-                } else {
-                    insufficientBalance = true
+    // MARK: - Status
+    private var statusCard: some View {
+        let activePrayer = screenTimeService.activePrayerLock
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text("Prayer Lock", "قفل الصلاة"))
+                        .font(.system(.headline, weight: .bold))
+                        .foregroundStyle(NafsTheme.text)
+                    Text(statusText)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-            } label: {
-                Text("Unlock with Earned Time")
-                    .font(.system(.headline, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(NafsTheme.goldGradient)
-                    .clipShape(.rect(cornerRadius: 16))
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(activePrayer != nil ? NafsTheme.gold : Color(hex: "4CAF50"))
+                        .frame(width: 8, height: 8)
+                    Text(activePrayer != nil ? L10n.text("Locked", "مقفل") : L10n.text("Standby", "استعداد"))
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(activePrayer != nil ? NafsTheme.gold : Color(hex: "4CAF50"))
+                }
             }
 
-            Button { viewModel.recordFocusCompleted(minutes: 25) } label: {
-                Text("Lock In / Focus Session (+15 min)")
-                    .font(.system(.subheadline, weight: .bold))
-                    .foregroundStyle(NafsTheme.gold)
+            if let activePrayer {
+                Button {
+                    showPrayConfirm = true
+                } label: {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text(L10n.text("I’ve Prayed", "لقد صليت"))
+                    }
+                    .font(.system(.subheadline, weight: .semibold))
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(NafsTheme.gold.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 16))
+                    .background(NafsTheme.goldGradient)
+                    .clipShape(.rect(cornerRadius: 14))
+                }
+                .confirmationDialog(
+                    L10n.text("Confirm Prayer", "تأكيد الصلاة"),
+                    isPresented: $showPrayConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button(L10n.text("Yes, I’ve prayed", "نعم، لقد صليت")) {
+                        let prayerJustDone = screenTimeService.activePrayerLock
+                        screenTimeService.markPrayerComplete(prayerTimes: viewModel.prayerTimes)
+                        unlockSuccess.toggle()
+                        if let prayerJustDone {
+                            lastCompletedPrayer = prayerJustDone
+                            lastCompletedCount = screenTimeService.completedPrayersToday()
+                            lastCompletedStreak = screenTimeService.currentStreakDays()
+                            showPrayerSuccess = true
+                        }
+                        triggerFirstPrayerRatingIfNeeded()
+                    }
+                    Button(L10n.text("Not yet", "ليس بعد"), role: .cancel) {}
+                } message: {
+                    Text(L10n.text("Did you complete your \(NafsStrings.prayerName(activePrayer)) prayer?", "هل أتممت صلاة \(NafsStrings.prayerName(activePrayer))؟"))
+                }
             }
-        }
-    }
-
-    private var selectedApps: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Selected Blocked Apps")
-                .font(.system(.headline, weight: .bold))
-                .foregroundStyle(NafsTheme.text)
-            Text(screenTimeService.hasSelection ? "\(screenTimeService.selectedAppCount) apps · \(screenTimeService.selectedCategoryCount) categories" : "No apps selected yet.")
-                .font(.system(.subheadline, weight: .medium))
-                .foregroundStyle(NafsTheme.subtleText)
-            Button("Choose Apps to Block") { showActivityPicker = true }
-                .font(.system(.subheadline, weight: .bold))
-                .foregroundStyle(NafsTheme.gold)
         }
         .padding(18)
         .background(NafsTheme.card)
         .clipShape(.rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
+        }
     }
 
-    private var hardReset: some View {
-        Button { showResetConfirm = true } label: {
-            Text("Hard Reset")
-                .font(.system(.subheadline, weight: .bold))
-                .foregroundStyle(.red.opacity(0.85))
+    // MARK: - Today card
+    private var todayCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.text("Today", "اليوم"))
+                        .font(.system(.title3, weight: .bold))
+                        .foregroundStyle(NafsTheme.text)
+                    Text(todayDateString)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(NafsTheme.subtleText)
+                }
+                Spacer()
+                if let next = viewModel.nextPrayer {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(L10n.text("Next", "القادمة"))
+                            .font(.system(.caption2, weight: .bold))
+                            .foregroundStyle(NafsTheme.subtleText)
+                            .tracking(0.8)
+                        Text("\(NafsStrings.prayerName(next.name)) · \(viewModel.nextPrayerCountdown)")
+                            .font(.system(.subheadline, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                    }
+                }
+            }
+
+            if !viewModel.prayerTimes.isEmpty {
+                prayerTimesList
+                progressSummary
+            }
+
+            if let nextLock = nextLockText {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(.caption2, weight: .semibold))
+                        .foregroundStyle(NafsTheme.gold)
+                    Text(nextLock)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(NafsTheme.subtleText)
+                    Spacer()
+                }
+                .padding(10)
+                .background(NafsTheme.gold.opacity(0.08))
+                .clipShape(.rect(cornerRadius: 12))
+            }
+        }
+        .padding(18)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.gold.opacity(0.2), lineWidth: 1)
+        }
+    }
+
+    private var prayerTimesList: some View {
+        VStack(spacing: 8) {
+            ForEach(viewModel.prayerTimes) { prayer in
+                let done = PrayerCompletionStore.isCompleted(prayer.name, on: .now)
+                HStack(spacing: 12) {
+                    Image(systemName: prayer.name.icon)
+                        .font(.system(.caption, weight: .semibold))
+                        .foregroundStyle(done ? NafsTheme.gold : (prayer.isNext ? NafsTheme.gold : NafsTheme.subtleText))
+                        .frame(width: 20)
+                    Text(NafsStrings.prayerName(prayer.name))
+                        .font(.system(.subheadline, weight: .semibold))
+                        .foregroundStyle(NafsTheme.text)
+                    Spacer()
+                    Text(prayer.timeString)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(NafsTheme.subtleText)
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(done ? NafsTheme.gold : NafsTheme.subtleText.opacity(0.4))
+                }
+                .padding(12)
+                .background(NafsTheme.background)
+                .clipShape(.rect(cornerRadius: 14))
+            }
+        }
+    }
+
+    private var progressSummary: some View {
+        let completed = PrayerCompletionStore.completedCount(on: .now)
+        let total = PrayerName.allCases.count
+        return HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(.caption, weight: .semibold))
+                .foregroundStyle(NafsTheme.gold)
+            Text(L10n.text("\(completed)/\(total) prayers completed", "\(completed)/\(total) صلوات مكتملة"))
+                .font(.system(.subheadline, weight: .semibold))
+                .foregroundStyle(NafsTheme.text)
+            Spacer()
+            ProgressView(value: Double(completed), total: Double(total))
+                .progressViewStyle(.linear)
+                .tint(NafsTheme.gold)
+                .frame(width: 90)
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Streak
+    private var streakCard: some View {
+        let streak = PrayerCompletionStore.currentStreakDays()
+        let cal = Calendar.current
+        let days = PrayerCompletionStore.recentDays(7, calendar: cal)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text("Consistency", "الانتظام"))
+                        .font(.system(.caption, weight: .bold))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .tracking(0.8)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(.title3, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                        Text("\(streak)")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(NafsTheme.gold)
+                            .contentTransition(.numericText())
+                        Text(streak == 1 ? L10n.text("Day Streak", "يوم متتالٍ") : L10n.text("Day Streak", "أيام متتالية"))
+                            .font(.system(.subheadline, weight: .semibold))
+                            .foregroundStyle(NafsTheme.text)
+                    }
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                ForEach(days, id: \.self) { day in
+                    let allDone = PrayerCompletionStore.allCompleted(on: day)
+                    let isToday = cal.isDateInToday(day)
+                    VStack(spacing: 6) {
+                        Circle()
+                            .fill(allDone ? NafsTheme.gold : NafsTheme.background)
+                            .frame(width: 22, height: 22)
+                            .overlay {
+                                if allDone {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(.white)
+                                } else if isToday {
+                                    Circle()
+                                        .strokeBorder(NafsTheme.gold, lineWidth: 1.5)
+                                }
+                            }
+                        Text(weekdayLabel(for: day))
+                            .font(.system(.caption2, weight: .semibold))
+                            .foregroundStyle(isToday ? NafsTheme.gold : NafsTheme.subtleText)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(18)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
+        }
+    }
+
+    private var todayDateString: String {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMM d"
+        return f.string(from: .now)
+    }
+
+    private func weekdayLabel(for date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EE"
+        return f.string(from: date)
+    }
+
+    private var nextLockText: String? {
+        guard let next = viewModel.nextPrayer else { return nil }
+        return L10n.text(
+            "\(NafsStrings.prayerName(next.name)) locks at \(next.timeString)",
+            "يقفل عند \(NafsStrings.prayerName(next.name)) الساعة \(next.timeString)"
+        )
+    }
+
+    // MARK: - App selection
+    private var appSelectionCard: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(NafsTheme.gold.opacity(0.12))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "app.badge.checkmark")
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(NafsTheme.gold)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text("Blocked Apps", "التطبيقات المحجوبة"))
+                        .font(.system(.headline, weight: .bold))
+                        .foregroundStyle(NafsTheme.text)
+
+                    let appCount = screenTimeService.selectedAppCount
+                    let catCount = screenTimeService.selectedCategoryCount
+                    let parts = [
+                        appCount > 0 ? L10n.text("\(appCount) app\(appCount == 1 ? "" : "s")", "\(appCount) تطبيق") : nil,
+                        catCount > 0 ? L10n.text("\(catCount) categor\(catCount == 1 ? "y" : "ies")", "\(catCount) فئة") : nil,
+                    ].compactMap { $0 }
+                    Text(parts.joined(separator: " · "))
+                        .font(.system(.caption))
+                        .foregroundStyle(NafsTheme.subtleText)
+                }
+
+                Spacer()
+            }
+
+            Button {
+                showActivityPicker = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(.body, weight: .semibold))
+                    Text(L10n.text("Change Selection", "تغيير الاختيار"))
+                        .font(.system(.subheadline, weight: .semibold))
+                }
+                .foregroundStyle(NafsTheme.gold)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(.red.opacity(0.07))
+                .background(NafsTheme.gold.opacity(0.1))
                 .clipShape(.rect(cornerRadius: 14))
+            }
         }
+        .padding(18)
+        .background(NafsTheme.card)
+        .clipShape(.rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
+        }
+    }
+
+    private var manageSection: some View {
+        Button {
+            showResetConfirm = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(.caption, weight: .semibold))
+                Text(L10n.text("Reset All Blocks", "إعادة تعيين جميع الحجب"))
+                    .font(.system(.subheadline, weight: .medium))
+            }
+            .foregroundStyle(.red.opacity(0.75))
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(.red.opacity(0.06))
+            .clipShape(.rect(cornerRadius: 14))
+        }
+    }
+
+    private var statusText: String {
+        if let activePrayer = screenTimeService.activePrayerLock {
+            return L10n.text("Locked for \(NafsStrings.prayerName(activePrayer)). Complete your prayer to unlock.", "مقفل من أجل \(NafsStrings.prayerName(activePrayer)). أكمل صلاتك للفتح.")
+        }
+        return L10n.text("Apps lock automatically at every prayer.", "تُقفل التطبيقات تلقائياً عند كل صلاة.")
     }
 
     private func loadPrayerLockEnabled() {
@@ -200,6 +687,7 @@ struct FocusView: View {
         } else {
             prayerLockEnabled = UserDefaults.standard.bool(forKey: prayerLockKey)
         }
+        UserDefaults.standard.set("auto", forKey: "nafs_focusMode_v2")
         screenTimeService.setPrayerLockEnabled(prayerLockEnabled)
     }
 }

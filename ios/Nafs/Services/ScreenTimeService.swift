@@ -108,8 +108,6 @@ class ScreenTimeService {
     }
 
     func temporaryUnlock(minutes: Int) {
-        // TODO: When earned screen time automation moves into the DeviceActivity extension,
-        // validate Dopamine Credits there too so unlock enforcement works while Nafs is closed.
         let expiry = Date.now.addingTimeInterval(TimeInterval(minutes * 60))
         unlockExpiresAt = expiry
         isUnlocked = true

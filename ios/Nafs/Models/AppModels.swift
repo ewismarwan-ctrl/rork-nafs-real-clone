@@ -156,15 +156,6 @@ nonisolated enum HabitType: String, CaseIterable, Codable, Sendable, Identifiabl
         default: return .daily
         }
     }
-
-    var isFreeDisciplineHabit: Bool {
-        switch self {
-        case .fardOnTime, .fardLate, .quran, .dhikr:
-            return true
-        default:
-            return false
-        }
-    }
 }
 
 nonisolated struct HabitLog: Identifiable, Codable, Sendable {

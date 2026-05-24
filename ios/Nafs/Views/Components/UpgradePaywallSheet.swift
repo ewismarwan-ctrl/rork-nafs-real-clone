@@ -25,7 +25,7 @@ struct UpgradePaywallSheet: View {
             ("lock.shield.fill", L10n.text("Lock distracting apps during prayer times", "اقفل التطبيقات أثناء الصلاة")),
             ("checkmark.seal.fill", L10n.text("Stay consistent with your Salah", "حافظ على صلاتك")),
             ("book.fill", L10n.text("Build a daily Quran habit", "ابنِ عادة مع القرآن")),
-            ("sparkles", L10n.text("Earn freedom by building discipline", "ركّز بلا تشتيت"))
+            ("sparkles", L10n.text("Stay focused without distractions", "ركّز بلا تشتيت"))
         ]
     }
 

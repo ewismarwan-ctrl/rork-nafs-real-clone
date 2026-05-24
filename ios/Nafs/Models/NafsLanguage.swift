@@ -79,7 +79,7 @@ enum NafsStrings {
     static let tabHome = LocalizedText(en: "Home", ar: "الرئيسية")
     static let tabQuran = LocalizedText(en: "Quran", ar: "القرآن")
     static let tabHabits = LocalizedText(en: "Habits", ar: "العبادات")
-    static let tabFocus = LocalizedText(en: "Nafs Lock", ar: "التركيز")
+    static let tabFocus = LocalizedText(en: "Focus", ar: "التركيز")
     static let tabNafsAI = LocalizedText(en: "Nafs AI", ar: "نفس AI")
     static let tabMore = LocalizedText(en: "More", ar: "المزيد")
 
@@ -306,10 +306,10 @@ enum NafsStrings {
     static let replayOnboarding = LocalizedText(en: "Replay Onboarding", ar: "إعادة التعريف")
     static let languageChanged = LocalizedText(en: "Language changed. Please restart the app for full effect.", ar: "تم تغيير اللغة. يرجى إعادة تشغيل التطبيق.")
 
-    static let focusMode = LocalizedText(en: "Discipline Mode", ar: "وضع التركيز")
+    static let focusMode = LocalizedText(en: "Focus Mode", ar: "وضع التركيز")
     static let prayerLock = LocalizedText(en: "Prayer auto-lock", ar: "قفل الصلاة")
     static let disciplineMode = LocalizedText(en: "Discipline Mode", ar: "وضع الانضباط")
     static let quranAudioFull = LocalizedText(en: "Quran audio & reciters", ar: "صوت القرآن والقراء")
-    static let panicMode = LocalizedText(en: "Lock In", ar: "وضع الطوارئ")
+    static let panicMode = LocalizedText(en: "Panic Mode", ar: "وضع الطوارئ")
     static let widgetsFeature = LocalizedText(en: "Home screen widgets", ar: "ودجت الشاشة الرئيسية")
 }

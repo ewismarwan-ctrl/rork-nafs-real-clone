@@ -46,9 +46,8 @@ class MuhasabahViewModel {
         entries.insert(entry, at: 0)
         saveEntries()
         UserDefaults.standard.set(Date(), forKey: lastCompletedKey)
-        appViewModel.recordDiscipline(.muhasabahReflection)
 
-        completionMessage = "Reset. Rebuild. Keep going, \(userName). Discipline earns freedom."
+        completionMessage = "JazakAllah khair, \(userName). Allah loves those who hold themselves accountable. \u{1F319}"
         showCompletion = true
 
         gratitudeText = ""

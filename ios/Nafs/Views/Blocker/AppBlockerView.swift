@@ -45,7 +45,6 @@ struct AppBlockerView: View {
                     }
 
                     if screenTimeService.hasSelection && !screenTimeService.isUnlocked {
-                        earnedCreditsCard
                         unlockOptionsSection
                     }
 
@@ -310,12 +309,8 @@ struct AppBlockerView: View {
 
             ForEach(UnlockOption.options) { option in
                 Button {
-                    if viewModel.discipline.spendCredits(minutes: option.durationMinutes) {
-                        screenTimeService.temporaryUnlock(minutes: option.durationMinutes)
-                        unlockSuccess = true
-                    } else {
-                        unlockFailed = true
-                    }
+                    screenTimeService.temporaryUnlock(minutes: option.durationMinutes)
+                    unlockSuccess = true
                 } label: {
                     HStack {
                         Text(option.duration)
@@ -342,28 +337,6 @@ struct AppBlockerView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(NafsTheme.cardBorder, lineWidth: 1)
-        )
-    }
-
-    private var earnedCreditsCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Earned Screen Time")
-                .font(.system(.headline, weight: .bold))
-                .foregroundStyle(NafsTheme.text)
-            Text("Available: \(viewModel.discipline.credits.currentAvailableMinutes) min")
-                .font(.system(.subheadline, weight: .semibold))
-                .foregroundStyle(NafsTheme.gold)
-            Text("Discipline earns freedom. Unlocks now spend Dopamine Credits.")
-                .font(.system(.caption))
-                .foregroundStyle(NafsTheme.subtleText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(NafsTheme.gold.opacity(0.07))
-        .clipShape(.rect(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(NafsTheme.gold.opacity(0.18), lineWidth: 1)
         )
     }
 

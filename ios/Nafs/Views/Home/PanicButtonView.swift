@@ -13,7 +13,6 @@ struct PanicButtonView: View {
     @State private var hapticTrigger: Int = 0
     @State private var breathScale: CGFloat = 0.6
     @State private var breathOpacity: Double = 0.4
-    @State private var didAwardLockIn: Bool = false
 
     private let ayahs = [
         ("فَإِنَّ مَعَ الْعُسْرِ يُسْرًا", "For indeed, with hardship comes ease.", "Quran 94:5"),
@@ -205,7 +204,7 @@ struct PanicButtonView: View {
                 .foregroundStyle(NafsTheme.gold)
                 .symbolEffect(.bounce)
 
-            Text(L10n.text("Locked in, \(appViewModel.userName). You stayed strong.", "ما شاء الله، \(appViewModel.userName). لقد صبرت."))
+            Text(L10n.text("MashaAllah, \(appViewModel.userName). You stayed strong.", "ما شاء الله، \(appViewModel.userName). لقد صبرت."))
                 .font(.system(.title3, weight: .bold))
                 .foregroundStyle(NafsTheme.text)
                 .multilineTextAlignment(.center)
@@ -213,7 +212,6 @@ struct PanicButtonView: View {
 
             VStack(spacing: 12) {
                 Button {
-                    awardTokens()
                     dismiss()
                 } label: {
                     HStack(spacing: 6) {
@@ -229,7 +227,6 @@ struct PanicButtonView: View {
                 }
 
                 Button {
-                    appViewModel.applyDisciplinePenalty(.brokeFocusEarly)
                     dismiss()
                 } label: {
                     Text(L10n.text("I opened the app anyway", "فتحت التطبيق على أي حال"))
@@ -237,7 +234,7 @@ struct PanicButtonView: View {
                         .foregroundStyle(NafsTheme.subtleText)
                 }
 
-                Text(L10n.text("Reset. Rebuild. Keep going.", "جزاك الله خيراً على صدقك مع نفسك. غداً يوم جديد."))
+                Text(L10n.text("JazakAllah for being honest with yourself. Tomorrow is a new day.", "جزاك الله خيراً على صدقك مع نفسك. غداً يوم جديد."))
                     .font(.system(.caption))
                     .foregroundStyle(NafsTheme.subtleText)
                     .multilineTextAlignment(.center)
@@ -278,9 +275,7 @@ struct PanicButtonView: View {
     }
 
     private func awardTokens() {
-        guard !didAwardLockIn else { return }
-        didAwardLockIn = true
-        appViewModel.recordLockInCompleted()
+        // No-op: reward system removed.
     }
 }
 
