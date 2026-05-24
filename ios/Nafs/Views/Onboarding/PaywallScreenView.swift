@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import RevenueCat
 
 enum PaywallConstants {
@@ -50,7 +49,6 @@ struct PaywallScreenView: View {
     @State private var purchaseTrigger: Int = 0
     @State private var purchaseError: String?
     @State private var isRestoring: Bool = false
-    @State private var showExitOffer: Bool = false
 
     private let benefits: [String] = [
         "Apps lock at prayer time",
@@ -59,37 +57,16 @@ struct PaywallScreenView: View {
     ]
 
     var body: some View {
-        if showExitOffer {
-            OneTimeOfferView(
-                storeViewModel: storeViewModel,
-                onPurchase: { startPurchase(preferDiscount: true) },
-                onRestore: { restorePurchases() },
-                purchaseError: $purchaseError
-            )
-        } else {
         VStack(spacing: 0) {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 28) {
-                    HStack {
-                        Spacer()
-                        Button {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-                                showExitOffer = true
-                            }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(NafsTheme.subtleText)
-                                .frame(width: 34, height: 34)
-                                .background(Circle().fill(NafsTheme.card))
-                        }
-                    }
+                    Spacer().frame(height: 16)
 
                     VStack(spacing: 14) {
-                        OnboardingHeadline(black: "Start protecting", gold: "your Salah")
+                        OnboardingHeadline(black: "Stop delaying", gold: "Salah")
                         OnboardingSubtext(lines: [
-                            "Prayer Lock is the core of Nafs.",
-                            "Start with 3 days free. No payment due now."
+                            "You've already seen how it works.",
+                            "Now let it run automatically for you."
                         ])
                     }
 
@@ -110,30 +87,30 @@ struct PaywallScreenView: View {
                     }
                     .padding(.horizontal, 4)
 
-                    VStack(spacing: 12) {
-                        Text("No Payment Due Now")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(NafsTheme.gold)
-                            .clipShape(.capsule)
-
+                    VStack(spacing: 10) {
                         PlanCard(
                             plan: .yearly,
                             isSelected: selectedPlan == .yearly,
                             isHighlighted: true,
                             displayPrice: dynamicPrice(for: .yearly),
-                            dailyEquivalent: "3 days free, then \(dynamicPrice(for: .yearly))/year",
+                            dailyEquivalent: dailyPrice(for: .yearly),
                             onSelect: { select(.yearly) }
                         )
 
-                        CompactPlanCard(
-                            plan: .weekly,
-                            isSelected: selectedPlan == .weekly,
-                            displayPrice: dynamicPrice(for: .weekly),
-                            onSelect: { select(.weekly) }
-                        )
+                        HStack(spacing: 10) {
+                            CompactPlanCard(
+                                plan: .monthly,
+                                isSelected: selectedPlan == .monthly,
+                                displayPrice: dynamicPrice(for: .monthly),
+                                onSelect: { select(.monthly) }
+                            )
+                            CompactPlanCard(
+                                plan: .weekly,
+                                isSelected: selectedPlan == .weekly,
+                                displayPrice: dynamicPrice(for: .weekly),
+                                onSelect: { select(.weekly) }
+                            )
+                        }
                     }
                 }
                 .padding(.horizontal, 24)
@@ -148,18 +125,18 @@ struct PaywallScreenView: View {
                         .frame(maxWidth: .infinity)
                 } else {
                     NafsButton(
-                        title: selectedPlan == .yearly ? "Start 3-Day Free Trial" : "Continue",
+                        title: "Start Free Trial",
                         isLoading: storeViewModel.isPurchasing
                     ) {
-                        startPurchase(preferDiscount: false)
+                        startPurchase()
                     }
                 }
 
-                Text(selectedPlan == .yearly ? "3 days free, then yearly price" : "Weekly option shown as anchor")
+                Text("Less than a coffee per week")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(NafsTheme.gold.opacity(0.85))
 
-                Text("Payment starts after the trial unless canceled.")
+                Text("Cancel anytime. No commitment during trial.")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(NafsTheme.subtleText)
                     .multilineTextAlignment(.center)
@@ -207,6 +184,15 @@ struct PaywallScreenView: View {
                     }
                 }
 
+                Button {
+                    vm.completeOnboarding()
+                } label: {
+                    Text("Continue with free plan")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(NafsTheme.subtleText)
+                        .underline()
+                }
+                .padding(.top, 2)
             }
             .padding(.horizontal, 24)
             .padding(.top, 12)
@@ -230,7 +216,6 @@ struct PaywallScreenView: View {
                 appeared = true
             }
         }
-        }
     }
 
     private func select(_ plan: SubscriptionPlan) {
@@ -240,19 +225,19 @@ struct PaywallScreenView: View {
         }
     }
 
-    private func startPurchase(preferDiscount: Bool) {
+    private func startPurchase() {
         guard !storeViewModel.isPurchasing else { return }
         Task {
-            var package = preferDiscount ? (storeViewModel.discountedYearlyPackage ?? storeViewModel.yearlyPackage) : packageForPlan(selectedPlan)
+            var package = packageForPlan(selectedPlan)
             if package == nil {
                 await storeViewModel.fetchOfferings()
                 try? await Task.sleep(for: .seconds(1))
-                package = preferDiscount ? (storeViewModel.discountedYearlyPackage ?? storeViewModel.yearlyPackage) : packageForPlan(selectedPlan)
+                package = packageForPlan(selectedPlan)
             }
             if package == nil {
                 await storeViewModel.fetchOfferings()
                 try? await Task.sleep(for: .seconds(2))
-                package = preferDiscount ? (storeViewModel.discountedYearlyPackage ?? storeViewModel.yearlyPackage) : packageForPlan(selectedPlan)
+                package = packageForPlan(selectedPlan)
             }
             guard let package else {
                 purchaseError = "Unable to load subscriptions from the App Store. Please check your connection and try again."
@@ -264,15 +249,6 @@ struct PaywallScreenView: View {
                 await storeViewModel.checkStatus()
                 vm.completeOnboarding()
             }
-        }
-    }
-
-    private func restorePurchases() {
-        Task {
-            isRestoring = true
-            let success = await storeViewModel.restore()
-            isRestoring = false
-            if success { vm.completeOnboarding() }
         }
     }
 
@@ -318,84 +294,6 @@ struct PaywallScreenView: View {
         let bumped = (ceil(rounded * 100) / 100)
         let display = formatter.string(from: NSNumber(value: bumped)) ?? "$0.11"
         return "Less than \(display)/day"
-    }
-}
-
-private struct OneTimeOfferView: View {
-    let storeViewModel: StoreViewModel
-    let onPurchase: () -> Void
-    let onRestore: () -> Void
-    @Binding var purchaseError: String?
-    @State private var secondsRemaining = 10 * 60
-    @State private var appeared = false
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        VStack(spacing: 26) {
-            Spacer()
-
-            VStack(spacing: 12) {
-                Text("One Time Offer")
-                    .font(.system(size: 15, weight: .bold))
-                    .tracking(2)
-                    .foregroundStyle(NafsTheme.gold)
-                Text("70% OFF")
-                    .font(.system(size: 64, weight: .bold))
-                    .foregroundStyle(NafsTheme.text)
-                Text("Lowest price. Billed yearly.")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(NafsTheme.subtleText)
-                    .multilineTextAlignment(.center)
-            }
-
-            ZStack {
-                Circle()
-                    .stroke(NafsTheme.card, lineWidth: 12)
-                    .frame(width: 154, height: 154)
-                Circle()
-                    .trim(from: 0, to: CGFloat(secondsRemaining) / 600)
-                    .stroke(NafsTheme.goldGradient, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .frame(width: 154, height: 154)
-                    .rotationEffect(.degrees(-90))
-                Text(timeString)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(NafsTheme.gold)
-            }
-
-            VStack(spacing: 12) {
-                NafsButton(title: "Claim your one time offer", isLoading: storeViewModel.isPurchasing) {
-                    onPurchase()
-                }
-
-                Button(action: onRestore) {
-                    Text("Restore Purchases")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(NafsTheme.subtleText)
-                        .underline()
-                }
-            }
-
-            Text("Discounted RevenueCat product ID is optional for now. If no discount product exists, Nafs falls back to the yearly package.")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(NafsTheme.subtleText.opacity(0.72))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 20)
-
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .background(Color.black.ignoresSafeArea())
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(.spring(response: 0.5)) { appeared = true } }
-        .onReceive(timer) { _ in
-            if secondsRemaining > 0 { secondsRemaining -= 1 }
-        }
-    }
-
-    private var timeString: String {
-        let minutes = secondsRemaining / 60
-        let seconds = secondsRemaining % 60
-        return String(format: "%02d:%02d", minutes, seconds)
     }
 }
 

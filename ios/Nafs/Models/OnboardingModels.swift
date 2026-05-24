@@ -2,26 +2,19 @@ import Foundation
 
 nonisolated enum OnboardingScreen: Int, CaseIterable {
     case splash = 0
-    case painHook
-    case solutionIntro
-    case lockAnimation
-    case name
-    case honestyIntro
-    case phoneHours
-    case salahOnTime
-    case salahObstacles
-    case goals
-    case consequence
-    case hope
-    case catCompanion
-    case catName
-    case commitment
-    case signatureCommitment
-    case screenTimePermission
-    case notificationPermission
-    case attribution
-    case socialProof
-    case roadmap
+    case languageSelection
+    case name           // What should we call you?
+    case problem        // Stop delaying / Salah
+    case discipline     // You don't lack / discipline
+    case oneScroll      // It starts with / one scroll
+    case notFault       // It's not your / fault
+    case system         // So we built a / system
+    case whenSalah      // When it's time for / Salah
+    case automation     // No reminders. / No willpower.
+    case appSelection   // Select apps to block
+    case phoneMockup    // Empty phone mockup placeholder
+    case location       // Enable accurate prayer times
+    case reward         // You pray → it unlocks
     case paywall
 }
 
@@ -121,51 +114,6 @@ nonisolated struct OnboardingOptions {
             SelectionOption("balanced", title: NafsStrings.strictBalanced.localized, icon: "scale.3d"),
             SelectionOption("strict", title: NafsStrings.strictStrict.localized, icon: "lock.shield"),
             SelectionOption("maximum", title: NafsStrings.strictMaximum.localized, icon: "lock.fill"),
-        ]
-    }
-
-    static var salahObstacles: [SelectionOption] {
-        [
-            SelectionOption("phone_social", title: "Phone / social media", icon: "iphone"),
-            SelectionOption("laziness", title: "Laziness", icon: "bed.double"),
-            SelectionOption("forgetfulness", title: "Forgetfulness", icon: "bell.slash"),
-            SelectionOption("school_work", title: "School / work", icon: "briefcase"),
-            SelectionOption("low_motivation", title: "Low motivation", icon: "battery.25"),
-            SelectionOption("sleep", title: "Sleep", icon: "moon.zzz"),
-            SelectionOption("other", title: "Other", icon: "ellipsis")
-        ]
-    }
-
-    static var salahGoals: [SelectionOption] {
-        [
-            SelectionOption("pray_on_time", title: "Pray on time", icon: "clock.badge.checkmark"),
-            SelectionOption("stop_delaying", title: "Stop delaying Salah", icon: "lock.shield"),
-            SelectionOption("reduce_scrolling", title: "Reduce scrolling", icon: "iphone.slash"),
-            SelectionOption("build_discipline", title: "Build discipline", icon: "shield.checkered"),
-            SelectionOption("strengthen_iman", title: "Strengthen iman", icon: "heart")
-        ]
-    }
-
-    static var commitmentLevels: [SelectionOption] {
-        [
-            SelectionOption("extremely", title: "Extremely committed", icon: "flame.fill"),
-            SelectionOption("very", title: "Very committed", icon: "checkmark.seal.fill"),
-            SelectionOption("somewhat", title: "Somewhat committed", icon: "leaf"),
-            SelectionOption("trying", title: "Just trying it out", icon: "sparkles")
-        ]
-    }
-
-    static var attributionSources: [SelectionOption] {
-        [
-            SelectionOption("tiktok", title: "TikTok", icon: "music.note"),
-            SelectionOption("youtube", title: "YouTube", icon: "play.rectangle.fill"),
-            SelectionOption("instagram", title: "Instagram", icon: "camera.fill"),
-            SelectionOption("snapchat", title: "Snapchat", icon: "bolt.fill"),
-            SelectionOption("apple_search_ads", title: "Apple Search Ads", icon: "magnifyingglass"),
-            SelectionOption("reddit", title: "Reddit", icon: "bubble.left.and.bubble.right"),
-            SelectionOption("friend", title: "Friend", icon: "person.2.fill"),
-            SelectionOption("influencer", title: "Influencer", icon: "person.crop.circle.badge.checkmark"),
-            SelectionOption("other", title: "Other", icon: "ellipsis")
         ]
     }
 }

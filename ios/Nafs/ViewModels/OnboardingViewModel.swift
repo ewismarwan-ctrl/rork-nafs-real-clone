@@ -26,18 +26,6 @@ class OnboardingViewModel {
 
     // Redesigned onboarding state
     var blockedDistractions: Set<String> = []
-    var dailyPhoneHours: Double = 5
-    var onTimePrayersPerWeek: Double = 3
-    var selectedSalahObstacles: Set<String> = []
-    var selectedSalahGoals: Set<String> = []
-    var catName: String = ""
-    var catLevel: Int = 1
-    var catStreakProgress: Double = 0
-    var selectedCommitment: String = ""
-    var signatureText: String = ""
-    var sourcePlatform: String = ""
-    var sourceDetail: String = ""
-    var referralCode: String = ""
 
     var totalScreens: Int { OnboardingScreen.allCases.count }
 
@@ -47,20 +35,10 @@ class OnboardingViewModel {
 
     var canProceed: Bool {
         switch currentScreen {
+        case .appSelection:
+            return !blockedDistractions.isEmpty
         case .name:
             return !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .salahObstacles:
-            return !selectedSalahObstacles.isEmpty
-        case .goals:
-            return !selectedSalahGoals.isEmpty
-        case .catName:
-            return !catName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .commitment:
-            return !selectedCommitment.isEmpty
-        case .signatureCommitment:
-            return !signatureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .attribution:
-            return !sourcePlatform.isEmpty
         default:
             return true
         }
@@ -68,7 +46,7 @@ class OnboardingViewModel {
 
     var requiresAnswer: Bool {
         switch currentScreen {
-        case .name, .salahObstacles, .goals, .catName, .commitment, .signatureCommitment, .attribution:
+        case .appSelection, .name:
             return !canProceed
         default:
             return false
@@ -76,15 +54,11 @@ class OnboardingViewModel {
     }
 
     var showBackButton: Bool {
-        currentScreen.rawValue > 1
+        currentScreen.rawValue > 2
     }
 
     var showProgressBar: Bool {
-        currentScreen != .splash && currentScreen != .paywall
-    }
-
-    var projectedPhoneYears: Int {
-        max(1, Int((dailyPhoneHours * 365 * 40 / 24).rounded()))
+        currentScreen != .splash && currentScreen != .languageSelection && currentScreen != .paywall
     }
 
     var nafsScore: Int {
@@ -241,27 +215,6 @@ class OnboardingViewModel {
         }
     }
 
-    func toggleSalahObstacle(_ id: String) {
-        if selectedSalahObstacles.contains(id) {
-            selectedSalahObstacles.remove(id)
-        } else {
-            selectedSalahObstacles.insert(id)
-        }
-    }
-
-    func toggleSalahGoal(_ id: String) {
-        if selectedSalahGoals.contains(id) {
-            selectedSalahGoals.remove(id)
-        } else {
-            selectedSalahGoals.insert(id)
-        }
-    }
-
-    func updateCatProgress() {
-        catLevel = max(1, min(7, Int(onTimePrayersPerWeek.rounded())))
-        catStreakProgress = min(1, onTimePrayersPerWeek / 7)
-    }
-
     func startLoading() {
         loadingProgress = 0
         loadingTextIndex = 0
@@ -279,32 +232,10 @@ class OnboardingViewModel {
     }
 
     func completeOnboarding() {
-        persistAnswers()
         hasCompletedOnboarding = true
     }
 
     var displayName: String {
         userName.trimmingCharacters(in: .whitespaces).isEmpty ? "Friend" : userName.trimmingCharacters(in: .whitespaces)
-    }
-
-    var displayCatName: String {
-        catName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Sabr" : catName.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    func persistAnswers() {
-        let defaults = UserDefaults.standard
-        defaults.set(displayName, forKey: "nafs_userName")
-        defaults.set(dailyPhoneHours, forKey: "nafs_onboarding_dailyPhoneHours")
-        defaults.set(onTimePrayersPerWeek, forKey: "nafs_onboarding_onTimePrayersPerWeek")
-        defaults.set(Array(selectedSalahObstacles), forKey: "nafs_onboarding_salahObstacles")
-        defaults.set(Array(selectedSalahGoals), forKey: "nafs_onboarding_salahGoals")
-        defaults.set(displayCatName, forKey: "nafs_catName")
-        defaults.set(catLevel, forKey: "nafs_catLevel")
-        defaults.set(catStreakProgress, forKey: "nafs_catStreakProgress")
-        defaults.set(selectedCommitment, forKey: "nafs_onboarding_commitment")
-        defaults.set(signatureText, forKey: "nafs_onboarding_signature")
-        defaults.set(sourcePlatform, forKey: "nafs_attribution_sourcePlatform")
-        defaults.set(sourceDetail, forKey: "nafs_attribution_sourceDetail")
-        defaults.set(referralCode, forKey: "nafs_attribution_referralCode")
     }
 }
